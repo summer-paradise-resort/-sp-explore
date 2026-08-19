@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#151010">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>SUMMER PARADISE｜探索</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f8f3eb;
+      --muted: #b9aaa0;
+      --line: rgba(255, 255, 255, .12);
+      --panel: #211a1a;
+      --panel-2: #2b2020;
+      --bg: #100d0d;
+      --wine: #7c171d;
+      --wine-light: #bd323a;
+      --gold: #e4b55a;
+      --green: #6fd19a;
+      --danger: #ff8e8e;
+      --shadow: 0 18px 50px rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-height: 100%; background: var(--bg); }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      padding: 0 0 env(safe-area-inset-bottom);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 85% -5%, rgba(135, 25, 31, .28), transparent 34rem),
+        linear-gradient(180deg, #171111 0%, #100d0d 46%, #0d0b0b 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+    button { touch-action: manipulation; }
+
+    .app-shell {
+      width: min(100%, 760px);
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(16, 13, 13, .9);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(228, 181, 90, .6);
+      border-radius: 50%;
+      color: var(--gold);
+      font-family: Georgia, serif;
+      font-weight: 700;
+    }
+    .brand strong { display: block; letter-spacing: .08em; font: 700 14px/1.2 Georgia, serif; }
+    .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; letter-spacing: .18em; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .04);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8e7f78; box-shadow: 0 0 0 4px rgba(142, 127, 120, .12); }
+    .status-pill.online { color: #dff8e9; border-color: rgba(111, 209, 154, .28); }
+    .status-pill.online .status-dot { background: var(--green); box-shadow: 0 0 0 4px rgba(111, 209, 154, .13); }
+    .status-pill.error { color: #ffe6e6; border-color: rgba(255, 142, 142, .32); }
+    .status-pill.error .status-dot { background: var(--danger); }
+
+    main { padding: 18px 16px 110px; }
+
+    .hero {
+      padding: 22px 4px 18px;
+    }
+    .eyebrow { margin: 0 0 8px; color: var(--gold); font: 700 11px/1.4 Georgia, serif; letter-spacing: .18em; }
+    h1 { margin: 0; font: 600 clamp(31px, 8vw, 48px)/1.02 Georgia, "Times New Roman", serif; letter-spacing: .01em; }
+    .hero-copy { max-width: 38rem; margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+
+    .identity-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 6px 0 18px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .035);
+    }
+    .identity-label { color: var(--muted); font-size: 11px; letter-spacing: .08em; }
+    #playerNameLabel { display: block; margin-top: 3px; font-size: 15px; font-weight: 700; }
+    .text-button { border: 0; padding: 8px; color: var(--gold); background: transparent; font-size: 13px; }
+
+    .live-strip {
+      overflow: hidden;
+      margin-bottom: 18px;
+      border: 1px solid rgba(228, 181, 90, .22);
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(124, 23, 29, .18), rgba(255, 255, 255, .035));
+      box-shadow: var(--shadow);
+    }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0;
+      padding: 14px 15px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .section-heading h2 { margin: 0; font-size: 14px; letter-spacing: .04em; }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+    .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.8s infinite; }
+    @keyframes pulse { 50% { opacity: .35; transform: scale(.8); } }
+
+    .mini-log { min-height: 74px; margin: 0; padding: 4px 0; list-style: none; }
+    .mini-log li { display: grid; grid-template-columns: 54px 1fr; gap: 8px; padding: 9px 15px; color: #e8ddd5; font-size: 12px; line-height: 1.55; }
+    .mini-log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .empty-note { padding: 18px 15px !important; color: var(--muted) !important; text-align: center; display: block !important; }
+
+    .notice {
+      display: none;
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid rgba(255, 142, 142, .28);
+      border-radius: 14px;
+      color: #ffe8e8;
+      background: rgba(133, 31, 31, .24);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .notice.show { display: block; }
+
+    .tabs {
+      position: fixed;
+      z-index: 25;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      width: min(100%, 760px);
+      margin: 0 auto;
+      padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: rgba(20, 15, 15, .94);
+      backdrop-filter: blur(20px);
+    }
+    .tab-button {
+      display: grid;
+      gap: 4px;
+      place-items: center;
+      min-height: 54px;
+      border: 0;
+      border-radius: 13px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 11px;
+    }
+    .tab-button .tab-icon { font-size: 19px; }
+    .tab-button.active { color: var(--ink); background: rgba(255, 255, 255, .07); }
+
+    .view { display: none; }
+    .view.active { display: block; animation: rise .22s ease-out; }
+    @keyframes rise { from { opacity: .45; transform: translateY(4px); } }
+
+    .view-title { margin: 8px 2px 13px; font-size: 18px; }
+    .view-subtitle { margin: -5px 2px 16px; color: var(--muted); font-size: 12px; line-height: 1.65; }
+
+    .room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .room-button {
+      min-height: 112px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      color: var(--ink);
+      background: linear-gradient(145deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .018));
+      text-align: left;
+      transition: transform .12s, border-color .12s, background .12s;
+    }
+    .room-button:active { transform: scale(.98); }
+    .room-button.selected { border-color: rgba(228, 181, 90, .68); background: linear-gradient(145deg, rgba(124, 23, 29, .36), rgba(255, 255, 255, .04)); }
+    .room-icon { display: block; margin-bottom: 13px; color: var(--gold); font: 700 20px Georgia, serif; }
+    .room-button strong { display: block; font-size: 14px; }
+    .room-button small { display: block; overflow: hidden; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+    .secret-tag { display: inline-block; margin-top: 8px; padding: 3px 6px; border-radius: 999px; color: #f8deb0; background: rgba(228, 181, 90, .12); font-size: 9px; }
+
+    .room-detail {
+      display: none;
+      margin-top: 12px;
+      padding: 18px;
+      border: 1px solid rgba(228, 181, 90, .25);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .room-detail.show { display: block; }
+    .room-detail h3 { margin: 0 0 9px; font: 600 24px/1.2 Georgia, serif; }
+    .room-detail p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .primary-button {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 16px;
+      border: 1px solid rgba(228, 181, 90, .65);
+      border-radius: 13px;
+      color: #1b1410;
+      background: linear-gradient(180deg, #efc975, #dbaa4e);
+      font-weight: 800;
+    }
+    .primary-button:disabled { opacity: .45; }
+
+    .find-area { display: none; margin-top: 15px; }
+    .find-area.show { display: block; }
+    .find-label { margin: 0 0 8px !important; color: var(--gold) !important; font-size: 11px !important; font-weight: 700; letter-spacing: .1em; }
+    .item-card {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 11px;
+      align-items: center;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0, 0, 0, .18);
+    }
+    .item-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--gold); background: rgba(228, 181, 90, .1); font-size: 20px; }
+    .item-card strong { display: block; font-size: 13px; }
+    .item-state { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .claim-button { grid-column: 1 / -1; min-height: 42px; border: 1px solid rgba(189, 50, 58, .65); border-radius: 11px; color: var(--ink); background: var(--wine); font-weight: 700; }
+    .claim-button:disabled { border-color: var(--line); color: var(--muted); background: rgba(255, 255, 255, .04); }
+
+    .inventory-list, .full-log { display: grid; gap: 9px; }
+    .inventory-card, .log-card {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, .035);
+    }
+    .inventory-card { display: grid; grid-template-columns: 43px 1fr; gap: 12px; align-items: center; }
+    .inventory-card .item-symbol { width: 43px; height: 43px; }
+    .inventory-card strong { display: block; font-size: 14px; }
+    .inventory-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .log-card { display: grid; grid-template-columns: 58px 1fr; gap: 8px; font-size: 12px; line-height: 1.6; }
+    .log-card time { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .empty-panel { padding: 28px 16px; border: 1px dashed var(--line); border-radius: 15px; color: var(--muted); text-align: center; font-size: 12px; line-height: 1.7; }
+
+    .modal-backdrop {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(10px);
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      width: min(100%, 520px);
+      padding: 22px;
+      border: 1px solid rgba(228, 181, 90, .25);
+      border-radius: 24px;
+      background: #241b1b;
+      box-shadow: var(--shadow);
+    }
+    .modal h2 { margin: 0; font: 600 26px/1.2 Georgia, serif; }
+    .modal p { margin: 10px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .name-input {
+      width: 100%;
+      min-height: 50px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      outline: none;
+      color: var(--ink);
+      background: rgba(0, 0, 0, .28);
+      font-size: 16px;
+    }
+    .name-input:focus { border-color: var(--gold); }
+    .modal-error { min-height: 20px; margin: 7px 1px 0; color: var(--danger); font-size: 11px; }
+    .modal-actions { display: grid; grid-template-columns: .7fr 1.3fr; gap: 9px; margin-top: 8px; }
+    .secondary-button { min-height: 46px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); background: transparent; }
+    .modal .primary-button { margin: 0; }
+
+    .toast {
+      position: fixed;
+      z-index: 120;
+      right: 16px;
+      bottom: calc(88px + env(safe-area-inset-bottom));
+      left: 16px;
+      width: min(calc(100% - 32px), 520px);
+      margin: 0 auto;
+      padding: 13px 15px;
+      border: 1px solid rgba(228, 181, 90, .35);
+      border-radius: 13px;
+      color: var(--ink);
+      background: rgba(38, 29, 29, .97);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      line-height: 1.5;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: .2s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .loading-cover {
+      position: fixed;
+      z-index: 150;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      background: #100d0d;
+      transition: opacity .25s;
+    }
+    .loading-cover.hide { opacity: 0; pointer-events: none; }
+    .loading-inner { text-align: center; }
+    .loading-emblem { margin: 0 auto 18px; width: 48px; height: 48px; border: 1px solid var(--gold); border-radius: 50%; animation: turn 1.5s linear infinite; }
+    @keyframes turn { to { transform: rotate(360deg); } }
+    .loading-inner strong { display: block; font: 600 18px Georgia, serif; }
+    .loading-inner span { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
+
+    @media (min-width: 620px) {
+      main { padding-inline: 24px; }
+      .room-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .modal-backdrop { align-items: center; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-cover" id="loadingCover" aria-live="polite">
+    <div class="loading-inner">
+      <div class="loading-emblem" aria-hidden="true"></div>
+      <strong>SUMMER PARADISE</strong>
+      <span>探索記録に接続しています</span>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SP</div>
+        <div><strong>SUMMER PARADISE</strong><small>PRIVATE EXPLORATION</small></div>
+      </div>
+      <div class="status-pill" id="connectionStatus" role="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="connectionText">接続中</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">MATADOR'S HOUSE / TEST EDITION</p>
+        <h1>静かな宿を<br>探索する</h1>
+        <p class="hero-copy">気になる場所を選び、辺りを調べてください。誰かの行動や発見は、参加者全員の画面へすぐに届きます。</p>
+      </section>
+
+      <section class="identity-row" aria-label="参加者情報">
+        <div><span class="identity-label">EXPLORER</span><strong id="playerNameLabel">名前を設定してください</strong></div>
+        <button class="text-button" id="editNameButton" type="button">名前を変更</button>
+      </section>
+
+      <div class="notice" id="systemNotice" role="alert"></div>
+
+      <section class="live-strip" aria-labelledby="liveHeading">
+        <div class="section-heading">
+          <h2 id="liveHeading">みんなの行動</h2>
+          <span class="live-badge"><span class="pulse" aria-hidden="true"></span>LIVE</span>
+        </div>
+        <ul class="mini-log" id="miniLog"><li class="empty-note">最初の行動を待っています。</li></ul>
+      </section>
+
+      <section class="view active" id="exploreView" data-view="explore">
+        <h2 class="view-title">探索場所</h2>
+        <p class="view-subtitle">部屋を選ぶと、その場所でできる行動が表示されます。</p>
+        <div class="room-grid" id="roomGrid"></div>
+        <article class="room-detail" id="roomDetail" aria-live="polite"></article>
+      </section>
+
+      <section class="view" id="inventoryView" data-view="inventory">
+        <h2 class="view-title">あなたの所持品</h2>
+        <p class="view-subtitle">一度入手された品は、ほかの参加者には取得できません。</p>
+        <div class="inventory-list" id="inventoryList"></div>
+      </section>
+
+      <section class="view" id="logView" data-view="log">
+        <h2 class="view-title">全員の行動記録</h2>
+        <p class="view-subtitle">新しい記録が上に表示されます。</p>
+        <div class="full-log" id="fullLog"></div>
+      </section>
+    </main>
+
+    <nav class="tabs" aria-label="メインメニュー">
+      <button class="tab-button active" type="button" data-target="explore"><span class="tab-icon" aria-hidden="true">⌖</span><span>探索</span></button>
+      <button class="tab-button" type="button" data-target="inventory"><span class="tab-icon" aria-hidden="true">◇</span><span>所持品</span></button>
+      <button class="tab-button" type="button" data-target="log"><span class="tab-icon" aria-hidden="true">≡</span><span>行動記録</span></button>
+    </nav>
+  </div>
+
+  <div class="modal-backdrop" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+    <form class="modal" id="nameForm">
+      <h2 id="nameModalTitle">探索名を決める</h2>
+      <p>みんなの行動記録に表示する名前です。本名でなくてかまいません。</p>
+      <label for="nameInput" class="identity-label">表示名（12文字まで）</label>
+      <input class="name-input" id="nameInput" name="name" type="text" maxlength="12" autocomplete="nickname" placeholder="例：V、探偵A、夏の客" required>
+      <div class="modal-error" id="nameError" role="alert"></div>
+      <div class="modal-actions">
+        <button class="secondary-button" id="cancelNameButton" type="button">閉じる</button>
+        <button class="primary-button" type="submit">この名前で参加</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+    import {
+      getDatabase,
+      limitToLast,
+      onValue,
+      push,
+      query,
+      ref,
+      runTransaction,
+      set,
+      update
+    } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDXTLPDdnuqGPmFgOdVKUM2DdOay-EMdnM",
+      authDomain: "sp-explore.firebaseapp.com",
+      databaseURL: "https://sp-explore-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "sp-explore",
+      storageBucket: "sp-explore.firebasestorage.app",
+      messagingSenderId: "591036776852",
+      appId: "1:591036776852:web:a7a7b75f2f1c9a015b8f81"
+    };
+
+    const rooms = [
+      {
+        id: "foyer",
+        icon: "I",
+        name: "玄関ホール",
+        short: "灯りの落ちた受付",
+        description: "鍵の掛かっていない玄関。古い受付台には、宿泊客の名を消した跡だけが残っています。",
+        item: null
+      },
+      {
+        id: "costume-room",
+        icon: "II",
+        name: "衣装室",
+        short: "闘牛士の衣装と戸棚",
+        description: "赤と金の衣装が並ぶ部屋。奥の戸棚だけ、妙に壁へ深く埋め込まれています。",
+        item: { id: "crimson-muleta", name: "赤いムレータ", symbol: "◆" }
+      },
+      {
+        id: "dining-room",
+        icon: "III",
+        name: "食堂",
+        short: "十二人分の食卓",
+        description: "料理はないのに、十二人分の席だけが整えられています。卓上のベルには乾いた埃が積もっています。",
+        item: { id: "silver-dinner-bell", name: "銀の呼び鈴", symbol: "♢" }
+      },
+      {
+        id: "study",
+        icon: "IV",
+        name: "書斎",
+        short: "書棚と破られた帳面",
+        description: "革張りの本が壁一面を埋めています。机の引き出しは半分だけ開いたままです。",
+        item: { id: "torn-guest-ledger", name: "破られた宿帳", symbol: "▤" }
+      },
+      {
+        id: "portrait-gallery",
+        icon: "V",
+        name: "肖像画回廊",
+        short: "視線の合わない肖像画",
+        description: "歴代の客らしい肖像画が並ぶ回廊。ひとつだけ額縁が壁から浮いています。",
+        item: { id: "portrait-fragment", name: "肖像画の裏の紙片", symbol: "▱" }
+      },
+      {
+        id: "bull-pen",
+        icon: "VI",
+        name: "牛舎",
+        short: "鎖と空の囲い",
+        description: "獣の気配はありません。湿った藁と、床を引きずった鎖の跡が残っています。",
+        item: { id: "brass-stall-tag", name: "真鍮の牛房札", symbol: "⬡" }
+      },
+      {
+        id: "wine-cellar",
+        icon: "VII",
+        name: "ワインセラー",
+        short: "樽の積まれた地下室",
+        description: "古い樽が天井近くまで積まれています。一本だけ空の瓶が床で転がっています。",
+        item: { id: "rusted-key", name: "錆びた鍵", symbol: "⌑" }
+      },
+      {
+        id: "clinic",
+        icon: "VIII",
+        name: "診療室",
+        short: "薬品棚と診察台",
+        description: "消毒薬の匂いが残る小部屋。ラベルの剥がれた小瓶が棚の奥で光っています。",
+        item: { id: "unlabeled-vial", name: "ラベルのない小瓶", symbol: "◉" }
+      },
+      {
+        id: "arena",
+        icon: "IX",
+        name: "中央闘牛場",
+        short: "施設中央の円形広場",
+        description: "建物の中央にある、天井のない小さな闘牛場。観客席には誰もいません。",
+        item: null
+      },
+      {
+        id: "hidden-room",
+        icon: "X",
+        name: "秘密の地下室",
+        short: "衣装室の戸棚の先",
+        description: "錆びた鍵で戸棚の奥が開きました。古い椅子、壁の鎖、用途の分からない革具が残されています。",
+        item: { id: "odd-leather-restraint", name: "用途不明の革製拘束具", symbol: "∞" },
+        secret: true,
+        unlockWhen: "rusted-key"
+      }
+    ];
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    const state = {
+      user: null,
+      playerName: localStorage.getItem("sp-explore-player-name") || "",
+      claims: {},
+      inventory: {},
+      logs: [],
+      exploredRooms: new Set(),
+      selectedRoomId: null,
+      listenersStarted: false
+    };
+
+    const el = {
+      loadingCover: document.getElementById("loadingCover"),
+      connectionStatus: document.getElementById("connectionStatus"),
+      connectionText: document.getElementById("connectionText"),
+      systemNotice: document.getElementById("systemNotice"),
+      playerNameLabel: document.getElementById("playerNameLabel"),
+      editNameButton: document.getElementById("editNameButton"),
+      nameModal: document.getElementById("nameModal"),
+      nameForm: document.getElementById("nameForm"),
+      nameInput: document.getElementById("nameInput"),
+      nameError: document.getElementById("nameError"),
+      cancelNameButton: document.getElementById("cancelNameButton"),
+      miniLog: document.getElementById("miniLog"),
+      fullLog: document.getElementById("fullLog"),
+      roomGrid: document.getElementById("roomGrid"),
+      roomDetail: document.getElementById("roomDetail"),
+      inventoryList: document.getElementById("inventoryList"),
+      toast: document.getElementById("toast")
+    };
+
+    let toastTimer = null;
+
+    function setConnection(kind, text) {
+      el.connectionStatus.classList.remove("online", "error");
+      if (kind) el.connectionStatus.classList.add(kind);
+      el.connectionText.textContent = text;
+    }
+
+    function showNotice(message) {
+      el.systemNotice.textContent = message;
+      el.systemNotice.classList.toggle("show", Boolean(message));
+    }
+
+    function showToast(message) {
+      window.clearTimeout(toastTimer);
+      el.toast.textContent = message;
+      el.toast.classList.add("show");
+      toastTimer = window.setTimeout(() => el.toast.classList.remove("show"), 2800);
+    }
+
+    function formatTime(timestamp) {
+      if (!Number.isFinite(Number(timestamp))) return "--:--";
+      return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(Number(timestamp)));
+    }
+
+    function showNameModal(canClose = true) {
+      el.nameInput.value = state.playerName;
+      el.nameError.textContent = "";
+      el.cancelNameButton.hidden = !canClose;
+      el.nameModal.classList.add("show");
+      window.setTimeout(() => el.nameInput.focus(), 80);
+    }
+
+    function hideNameModal() {
+      if (!state.playerName) return;
+      el.nameModal.classList.remove("show");
+    }
+
+    function friendlyError(error) {
+      const code = error?.code || "";
+      if (code.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
+      if (code.includes("permission-denied")) return "データベースのルール設定がまだ完了していません。Firebaseの「ルール」を確認してください。";
+      if (code.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。Authenticationの承認済みドメインへ追加してください。";
+      if (code.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
+      return "接続中に問題が起きました。少し待って再読み込みしてください。";
+    }
+
+    function handleError(error) {
+      console.error(error);
+      const message = friendlyError(error);
+      setConnection("error", "要確認");
+      showNotice(message);
+    }
+
+    function makeLogCard(log) {
+      const card = document.createElement("div");
+      card.className = "log-card";
+      const time = document.createElement("time");
+      time.dateTime = new Date(Number(log.timestamp) || Date.now()).toISOString();
+      time.textContent = formatTime(log.timestamp);
+      const message = document.createElement("span");
+      message.textContent = log.message || "記録が追加されました。";
+      card.append(time, message);
+      return card;
+    }
+
+    function renderLogs() {
+      const newest = [...state.logs].sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+      el.miniLog.replaceChildren();
+      if (!newest.length) {
+        const empty = document.createElement("li");
+        empty.className = "empty-note";
+        empty.textContent = "最初の行動を待っています。";
+        el.miniLog.append(empty);
+      } else {
+        newest.slice(0, 3).forEach((log) => {
+          const li = document.createElement("li");
+          const time = document.createElement("time");
+          time.textContent = formatTime(log.timestamp);
+          const message = document.createElement("span");
+          message.textContent = log.message;
+          li.append(time, message);
+          el.miniLog.append(li);
+        });
+      }
+
+      el.fullLog.replaceChildren();
+      if (!newest.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-panel";
+        empty.textContent = "まだ行動記録はありません。";
+        el.fullLog.append(empty);
+      } else {
+        newest.forEach((log) => el.fullLog.append(makeLogCard(log)));
+      }
+    }
+
+    function availableRooms() {
+      return rooms.filter((room) => !room.secret || state.claims[room.unlockWhen]);
+    }
+
+    function renderRooms() {
+      const available = availableRooms();
+      if (state.selectedRoomId && !available.some((room) => room.id === state.selectedRoomId)) {
+        state.selectedRoomId = null;
+      }
+      el.roomGrid.replaceChildren();
+      available.forEach((room) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "room-button" + (state.selectedRoomId === room.id ? " selected" : "");
+        button.setAttribute("aria-pressed", String(state.selectedRoomId === room.id));
+
+        const icon = document.createElement("span");
+        icon.className = "room-icon";
+        icon.textContent = room.icon;
+        const name = document.createElement("strong");
+        name.textContent = room.name;
+        const short = document.createElement("small");
+        short.textContent = room.short;
+        button.append(icon, name, short);
+        if (room.secret) {
+          const tag = document.createElement("span");
+          tag.className = "secret-tag";
+          tag.textContent = "鍵で解放されました";
+          button.append(tag);
+        }
+        button.addEventListener("click", () => selectRoom(room.id));
+        el.roomGrid.append(button);
+      });
+      renderRoomDetail();
+    }
+
+    function selectRoom(roomId) {
+      state.selectedRoomId = roomId;
+      renderRooms();
+      window.setTimeout(() => el.roomDetail.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
+    }
+
+    function renderRoomDetail() {
+      const room = rooms.find((entry) => entry.id === state.selectedRoomId);
+      el.roomDetail.replaceChildren();
+      el.roomDetail.classList.toggle("show", Boolean(room));
+      if (!room) return;
+
+      const title = document.createElement("h3");
+      title.textContent = room.name;
+      const description = document.createElement("p");
+      description.textContent = room.description;
+      const exploreButton = document.createElement("button");
+      exploreButton.type = "button";
+      exploreButton.className = "primary-button";
+      exploreButton.textContent = state.exploredRooms.has(room.id) ? "もう一度、辺りを調べる" : "辺りを調べる";
+      exploreButton.disabled = !state.user || !state.playerName;
+      exploreButton.addEventListener("click", () => exploreRoom(room));
+      el.roomDetail.append(title, description, exploreButton);
+
+      const findArea = document.createElement("div");
+      findArea.className = "find-area" + (state.exploredRooms.has(room.id) ? " show" : "");
+      if (room.item) {
+        const label = document.createElement("p");
+        label.className = "find-label";
+        label.textContent = "見つけたもの";
+        findArea.append(label, makeItemCard(room, room.item));
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "empty-panel";
+        empty.textContent = "目ぼしい物は見つかりませんでした。";
+        findArea.append(empty);
+      }
+      el.roomDetail.append(findArea);
+    }
+
+    function makeItemCard(room, item) {
+      const claim = state.claims[item.id];
+      const card = document.createElement("div");
+      card.className = "item-card";
+      const symbol = document.createElement("div");
+      symbol.className = "item-symbol";
+      symbol.textContent = item.symbol;
+      const copy = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = item.name;
+      const status = document.createElement("span");
+      status.className = "item-state";
+      status.textContent = claim ? `${claim.playerName || "誰か"}が入手済みです` : "まだ誰も入手していません";
+      copy.append(name, status);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "claim-button";
+      button.disabled = Boolean(claim) || !state.user || !state.playerName;
+      button.textContent = claim ? "入手済み" : "入手する";
+      button.addEventListener("click", () => claimItem(room, item, button));
+      card.append(symbol, copy, button);
+      return card;
+    }
+
+    async function writeLog(message, type, extra = {}) {
+      if (!state.user || !state.playerName) return;
+      const newLogRef = push(ref(db, "logs"));
+      await set(newLogRef, {
+        uid: state.user.uid,
+        playerName: state.playerName,
+        message,
+        type,
+        timestamp: Date.now(),
+        ...extra
+      });
+    }
+
+    async function exploreRoom(room) {
+      if (!state.user || !state.playerName) {
+        showNameModal(false);
+        return;
+      }
+      state.exploredRooms.add(room.id);
+      renderRoomDetail();
+      try {
+        await writeLog(`${state.playerName}が「${room.name}」を探索しました。`, "explore", { locationId: room.id });
+      } catch (error) {
+        handleError(error);
+      }
+    }
+
+    async function claimItem(room, item, button) {
+      if (!state.user || !state.playerName) return;
+      button.disabled = true;
+      button.textContent = "確認中…";
+      try {
+        const claimRef = ref(db, `claims/${item.id}`);
+        const claim = {
+          uid: state.user.uid,
+          playerName: state.playerName,
+          itemName: item.name,
+          locationId: room.id,
+          claimedAt: Date.now()
+        };
+        const result = await runTransaction(claimRef, (current) => current === null ? claim : undefined, { applyLocally: false });
+        if (!result.committed) {
+          const winner = result.snapshot.val()?.playerName || "ほかの参加者";
+          showToast(`${winner}が先に入手しました。`);
+          return;
+        }
+
+        const logKey = push(ref(db, "logs")).key;
+        const now = Date.now();
+        const updates = {};
+        updates[`inventories/${state.user.uid}/${item.id}`] = {
+          name: item.name,
+          symbol: item.symbol,
+          locationId: room.id,
+          locationName: room.name,
+          acquiredAt: now
+        };
+        updates[`logs/${logKey}`] = {
+          uid: state.user.uid,
+          playerName: state.playerName,
+          message: `${state.playerName}が「${item.name}」を入手しました。`,
+          type: "item",
+          itemId: item.id,
+          locationId: room.id,
+          timestamp: now
+        };
+        await update(ref(db), updates);
+        showToast(`「${item.name}」を入手しました。`);
+      } catch (error) {
+        handleError(error);
+      } finally {
+        renderRooms();
+      }
+    }
+
+    function itemSymbol(itemId, savedSymbol) {
+      if (savedSymbol) return savedSymbol;
+      for (const room of rooms) if (room.item?.id === itemId) return room.item.symbol;
+      return "◇";
+    }
+
+    function renderInventory() {
+      const entries = Object.entries(state.inventory).sort(([, a], [, b]) => Number(b.acquiredAt || 0) - Number(a.acquiredAt || 0));
+      el.inventoryList.replaceChildren();
+      if (!entries.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-panel";
+        empty.textContent = "所持品はまだありません。部屋を探索してみましょう。";
+        el.inventoryList.append(empty);
+        return;
+      }
+      entries.forEach(([itemId, item]) => {
+        const card = document.createElement("div");
+        card.className = "inventory-card";
+        const symbol = document.createElement("div");
+        symbol.className = "item-symbol";
+        symbol.textContent = itemSymbol(itemId, item.symbol);
+        const copy = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = item.name || "名称不明の品";
+        const meta = document.createElement("small");
+        meta.textContent = `${item.locationName || "場所不明"}で入手・${formatTime(item.acquiredAt)}`;
+        copy.append(name, meta);
+        card.append(symbol, copy);
+        el.inventoryList.append(card);
+      });
+    }
+
+    function startRealtimeListeners() {
+      if (state.listenersStarted || !state.user) return;
+      state.listenersStarted = true;
+
+      onValue(ref(db, ".info/connected"), (snapshot) => {
+        const connected = snapshot.val() === true;
+        setConnection(connected ? "online" : "", connected ? "リアルタイム" : "再接続中");
+      });
+
+      onValue(ref(db, "claims"), (snapshot) => {
+        state.claims = snapshot.val() || {};
+        renderRooms();
+      }, handleError);
+
+      onValue(ref(db, `inventories/${state.user.uid}`), (snapshot) => {
+        state.inventory = snapshot.val() || {};
+        renderInventory();
+      }, handleError);
+
+      const logsQuery = query(ref(db, "logs"), limitToLast(60));
+      onValue(logsQuery, (snapshot) => {
+        const raw = snapshot.val() || {};
+        state.logs = Object.entries(raw).map(([id, value]) => ({ id, ...value }));
+        renderLogs();
+      }, handleError);
+    }
+
+    async function savePlayerName(nextName) {
+      const clean = nextName.trim().replace(/\s+/g, " ");
+      if (!clean) throw new Error("名前を入力してください。");
+      if ([...clean].length > 12) throw new Error("名前は12文字以内にしてください。");
+      if (!state.user) throw new Error("接続が終わるまで少し待ってください。");
+
+      const wasEmpty = !state.playerName;
+      state.playerName = clean;
+      localStorage.setItem("sp-explore-player-name", clean);
+      el.playerNameLabel.textContent = clean;
+      await set(ref(db, `players/${state.user.uid}`), {
+        name: clean,
+        updatedAt: Date.now()
+      });
+      if (wasEmpty) await writeLog(`${clean}が探索に参加しました。`, "join");
+      hideNameModal();
+      renderRoomDetail();
+      showToast(`${clean}として参加しました。`);
+    }
+
+    el.nameForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      el.nameError.textContent = "";
+      const submit = el.nameForm.querySelector("button[type='submit']");
+      submit.disabled = true;
+      try {
+        await savePlayerName(el.nameInput.value);
+      } catch (error) {
+        el.nameError.textContent = error.message || friendlyError(error);
+        if (error.code) handleError(error);
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    el.editNameButton.addEventListener("click", () => showNameModal(true));
+    el.cancelNameButton.addEventListener("click", hideNameModal);
+
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.target;
+        document.querySelectorAll(".tab-button").forEach((entry) => entry.classList.toggle("active", entry === button));
+        document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.dataset.view === target));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
+    renderRooms();
+    renderInventory();
+    renderLogs();
+    el.playerNameLabel.textContent = state.playerName || "名前を設定してください";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          handleError(error);
+          el.loadingCover.classList.add("hide");
+        }
+        return;
+      }
+
+      state.user = user;
+      startRealtimeListeners();
+      if (state.playerName) {
+        try {
+          await set(ref(db, `players/${user.uid}`), { name: state.playerName, updatedAt: Date.now() });
+        } catch (error) {
+          handleError(error);
+        }
+      } else {
+        showNameModal(false);
+      }
+      el.loadingCover.classList.add("hide");
+      renderRoomDetail();
+    });
+  </script>
+</body>
+</html>

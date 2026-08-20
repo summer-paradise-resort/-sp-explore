@@ -197,6 +197,64 @@
     .view-title { margin: 8px 2px 13px; font-size: 18px; }
     .view-subtitle { margin: -5px 2px 16px; color: var(--muted); font-size: 12px; line-height: 1.65; }
 
+    .daily-panel {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 14px 15px;
+      border: 1px solid rgba(228, 181, 90, .24);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .035);
+    }
+    .daily-panel strong { display: block; font-size: 13px; }
+    .daily-panel small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .daily-count { color: var(--gold); font: 700 18px/1 Georgia, serif; white-space: nowrap; }
+
+    .journey-card {
+      padding: 22px 18px;
+      border: 1px solid rgba(228, 181, 90, .28);
+      border-radius: 21px;
+      background:
+        radial-gradient(circle at 95% 0%, rgba(124, 23, 29, .38), transparent 19rem),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .journey-card h2 { margin: 0; font: 600 30px/1.12 Georgia, serif; }
+    .journey-card > p { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.85; }
+    .journey-card .primary-button { margin-top: 20px; }
+
+    .story-lines {
+      display: grid;
+      gap: 9px;
+      margin-top: 17px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .story-lines p {
+      margin: 0;
+      color: #ded2c9;
+      font-family: Georgia, "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 13px;
+      line-height: 1.85;
+    }
+    .choice-step { margin: 0 0 7px; color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+    .choice-heading { margin: 0 0 13px; font: 600 25px/1.25 Georgia, serif; }
+    .choice-note { margin: -4px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+
+    .ended-panel {
+      padding: 30px 20px;
+      border: 1px solid rgba(228, 181, 90, .28);
+      border-radius: 21px;
+      background: linear-gradient(145deg, rgba(124, 23, 29, .25), rgba(255, 255, 255, .035));
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .ended-panel .ended-mark { color: var(--gold); font: 400 46px/1 Georgia, serif; }
+    .ended-panel h2 { margin: 14px 0 0; font: 600 27px/1.25 Georgia, serif; }
+    .ended-panel p { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+
     .room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .room-button {
       min-height: 112px;
@@ -298,8 +356,36 @@
       filter: blur(9px);
     }
     .item-visual-symbol { position: relative; color: var(--gold); font: 400 92px/1 Georgia, serif; text-shadow: 0 12px 35px rgba(228, 181, 90, .25); }
+    .item-visual.has-image { min-height: 0; background: #080707; }
+    .item-visual.has-image::before { display: none; }
+    .item-image { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: contain; background: #080707; }
+    .item-fallback { display: grid; place-items: center; width: 100%; min-height: 230px; }
     .item-discovery .find-label { margin-top: 15px !important; }
     .secret-link { margin-top: 14px; }
+    .secondary-wide {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .025);
+    }
+    .velvet-empty {
+      margin-top: 20px;
+      padding: 34px 19px;
+      border: 1px solid rgba(228, 181, 90, .3);
+      border-radius: 19px;
+      background:
+        radial-gradient(circle at 50% 34%, rgba(142, 21, 31, .46), transparent 55%),
+        linear-gradient(155deg, #3a0f14, #180b0d);
+      color: #f2e5d9;
+      font-family: Georgia, "Yu Mincho", "Hiragino Mincho ProN", serif;
+      font-size: 16px;
+      line-height: 1.9;
+      text-align: center;
+      box-shadow: inset 0 0 38px rgba(0, 0, 0, .45);
+    }
     body.subpage .hero,
     body.subpage .identity-row,
     body.subpage .live-strip { display: none; }
@@ -484,12 +570,20 @@
 
       <section class="view active" id="exploreView" data-view="explore">
         <div id="exploreHome">
-          <h2 class="view-title">探索場所</h2>
-          <p class="view-subtitle">向かう場所を選んでください。選択すると、その部屋のページへ移動します。</p>
-          <div class="room-grid" id="roomGrid"></div>
+          <section class="daily-panel" aria-live="polite">
+            <div><strong id="dailyStatusTitle">本日の取得数</strong><small id="dailyStatusNote">毎日22:00（日本時間）に更新されます。</small></div>
+            <span class="daily-count" id="dailyCount">0 / 1</span>
+          </section>
+          <section class="journey-card" id="journeyIntro">
+            <p class="choice-step">BEGIN EXPLORATION</p>
+            <h2>探索へ行く</h2>
+            <p>扉の向こうでは、選んだ道の組み合わせによって到着する場所が変わります。三つの分岐を越え、EL CAPOTEの奥へ進んでください。</p>
+            <button class="primary-button" id="startJourneyButton" type="button">探索へ行く</button>
+          </section>
         </div>
-        <article class="route-page" id="roomPage" aria-live="polite"></article>
-        <article class="route-page" id="spotPage" aria-live="polite"></article>
+        <article class="route-page" id="journeyPage" aria-live="polite"></article>
+        <article class="route-page" id="arrivalPage" aria-live="polite"></article>
+        <article class="route-page" id="itemPage" aria-live="polite"></article>
       </section>
 
       <section class="view" id="inventoryView" data-view="inventory">
@@ -553,143 +647,503 @@
       appId: "1:591036776852:web:a7a7b75f2f1c9a015b8f81"
     };
 
-    const rooms = [
-      {
-        id: "foyer",
-        icon: "I",
-        name: "玄関ホール",
-        short: "灯りの落ちた受付",
-        description: "鍵の掛かっていない玄関。古い受付台には、宿泊客の名を消した跡だけが残っています。",
-        item: null
-      },
-      {
+    const HOUR = 60 * 60 * 1000;
+    const DAY = 24 * HOUR;
+    const JST_OFFSET = 9 * HOUR;
+    const RESET_HOUR_JST = 22;
+
+    const rooms = {
+      "costume-room": {
         id: "costume-room",
-        icon: "II",
-        name: "衣装室",
-        short: "闘牛士の衣装と戸棚",
-        description: "赤と金の衣装が並ぶ部屋。奥の戸棚だけ、妙に壁へ深く埋め込まれています。",
-        item: { id: "crimson-muleta", name: "赤いムレータ", symbol: "◆" }
+        code: "I",
+        name: "衣裳室",
+        subtitle: "赤と金の衣裳が眠る部屋",
+        story: [
+          "扉を押すと、乾いた布の匂いが静かに流れ出した。",
+          "壁一面に、闘牛士の衣裳が人の形のまま並んでいる。",
+          "金糸の刺繍は、弱い灯りを受けて呼吸するように光った。",
+          "床には新しい靴跡があるのに、部屋には誰もいない。",
+          "鏡台の鏡だけが、実際よりも深い部屋を映している。",
+          "赤い上着の袖が、風もないのに一度だけ揺れた。",
+          "衣裳棚の奥から、金具が触れ合う小さな音がする。",
+          "視線を向けると、その音はすぐに止んだ。",
+          "ベルベットの台には、ひとつの品が飾られている。",
+          "さらに衣裳をかき分ければ、壁の向こうへ進めそうだ。"
+        ],
+        item: {
+          id: "crimson-muleta",
+          name: "強奪のムレータ（紫）",
+          symbol: "◆",
+          image: "muleta-purple-1080.jpg"
+        },
+        secretExit: {
+          roomId: "torture-room",
+          label: "衣裳をかき分け、さらに奥へ進む",
+          log: "衣裳室の隠し扉を見つけました。"
+        }
       },
-      {
-        id: "dining-room",
-        icon: "III",
-        name: "食堂",
-        short: "十二人分の食卓",
-        description: "料理はないのに、十二人分の席だけが整えられています。卓上のベルには乾いた埃が積もっています。",
-        item: { id: "silver-dinner-bell", name: "銀の呼び鈴", symbol: "♢" }
-      },
-      {
+      "study": {
         id: "study",
-        icon: "IV",
+        code: "II",
         name: "書斎",
-        short: "書棚と破られた帳面",
-        description: "革張りの本が壁一面を埋めています。机の引き出しは半分だけ開いたままです。",
-        item: { id: "torn-guest-ledger", name: "破られた宿帳", symbol: "▤" }
+        subtitle: "名を消された本が並ぶ部屋",
+        story: [
+          "重い扉の先には、天井まで届く本棚が続いていた。",
+          "革張りの本はすべて、同じ赤い糸で綴じられている。",
+          "机の上では、羽根ペンの先だけがまだ濡れていた。",
+          "窓は板で塞がれ、外の音はひとつも届かない。",
+          "開かれた記録帳には、客の名前が几帳面に並んでいる。",
+          "いくつかの名前だけが、刃物で深く削り取られていた。",
+          "暖炉の灰からは、甘い煙草の香りが残っている。",
+          "背後で本が一冊落ちたが、棚には隙間がなかった。",
+          "机の奥には、持ち出せそうな記録が置かれている。",
+          "本棚の一角だけ、床に弧を描く擦れ跡がある。"
+        ],
+        item: {
+          id: "torn-guest-ledger",
+          name: "破られた宿帳",
+          symbol: "▤",
+          image: "torn-ledger.jpg"
+        },
+        secretExit: {
+          roomId: "hernando-room",
+          label: "本棚の裏を調べ、奥へ進む",
+          log: "書斎の本棚の裏に隠し通路を見つけました。"
+        }
       },
-      {
-        id: "portrait-gallery",
-        icon: "V",
-        name: "肖像画回廊",
-        short: "視線の合わない肖像画",
-        description: "歴代の客らしい肖像画が並ぶ回廊。ひとつだけ額縁が壁から浮いています。",
-        item: { id: "portrait-fragment", name: "肖像画の裏の紙片", symbol: "▱" }
+      "kitchen": {
+        id: "kitchen",
+        code: "III",
+        name: "厨房",
+        subtitle: "火の消えた調理場",
+        story: [
+          "揺れる扉を抜けると、銅鍋の並ぶ厨房へ出た。",
+          "竈の火は消えているのに、鉄板にはまだ熱が残っている。",
+          "吊された香草は黒く乾き、触れるたび粉になった。",
+          "調理台には十二枚の皿が、同じ間隔で置かれている。",
+          "どの皿にも料理はなく、中央だけ丸く濡れていた。",
+          "食器棚の奥から、刃を研ぐような音が聞こえる。",
+          "振り返ると、包丁の向きが先ほどと変わっていた。",
+          "床の排水溝には、細かな木屑が詰まっている。",
+          "薪箱の陰に、古びた道具が置き忘れられていた。",
+          "配膳口の向こうでは、誰かが椅子を引く音がした。"
+        ],
+        item: {
+          id: "old-hand-saw",
+          name: "古いノコギリ",
+          symbol: "⌁",
+          image: "old-saw.jpg"
+        }
       },
-      {
+      "bull-pen": {
         id: "bull-pen",
-        icon: "VI",
-        name: "牛舎",
-        short: "鎖と空の囲い",
-        description: "獣の気配はありません。湿った藁と、床を引きずった鎖の跡が残っています。",
-        item: { id: "brass-stall-tag", name: "真鍮の牛房札", symbol: "⬡" }
+        code: "IV",
+        name: "牛房",
+        subtitle: "鎖だけが残る石の囲い",
+        story: [
+          "低い通路の先で、湿った藁の匂いが濃くなった。",
+          "石壁で区切られた牛房は、すべて空になっている。",
+          "太い鎖が床を這い、その先だけが乱暴に千切れていた。",
+          "壁には角が擦れた跡ではなく、爪で刻んだ線がある。",
+          "水桶の表面が、足音に合わせて小さく波打った。",
+          "奥の囲いから、重い鼻息が一度だけ聞こえる。",
+          "灯りを向けても、闇の中には何も見つからない。",
+          "藁の下で、真鍮の小さな札が鈍く光っていた。",
+          "札には番号ではなく、誰かの名前が彫られている。",
+          "背を向けた瞬間、鎖が床を滑る音が近づいた。"
+        ],
+        item: {
+          id: "brass-stall-tag",
+          name: "真鍮の牛房札",
+          symbol: "⬡",
+          image: "brass-stall-tag.jpg"
+        }
       },
-      {
+      "wine-cellar": {
         id: "wine-cellar",
-        icon: "VII",
+        code: "V",
         name: "ワインセラー",
-        short: "樽の積まれた地下室",
-        description: "古い樽が天井近くまで積まれています。一本だけ空の瓶が床で転がっています。",
-        item: { id: "rusted-key", name: "錆びた鍵", symbol: "⌑" }
+        subtitle: "赤い雫の残る地下室",
+        story: [
+          "階段を降りるたび、空気は冷たく、甘くなっていった。",
+          "地下室には古い樽が、壁のように積まれている。",
+          "棚の瓶はどれも埃をかぶり、年号だけが読めなかった。",
+          "一本だけ新しい瓶があり、中身は黒に近い赤色だった。",
+          "床には二人分のグラス跡が、向かい合って残っている。",
+          "どこかの樽から、一定の間隔で雫が落ちていた。",
+          "音を追うと、向きの違う樽がひとつ見つかった。",
+          "樽を押すと、石壁の隙間で金属が転がる。",
+          "拾い上げた鍵には、衣裳の糸が絡みついていた。",
+          "階段の上から、誰かが扉を閉める音が響いた。"
+        ],
+        item: {
+          id: "rusted-key",
+          name: "錆びた鍵",
+          symbol: "⌑",
+          image: "rusted-key.jpg"
+        }
       },
-      {
-        id: "clinic",
-        icon: "VIII",
-        name: "診療室",
-        short: "薬品棚と診察台",
-        description: "消毒薬の匂いが残る小部屋。ラベルの剥がれた小瓶が棚の奥で光っています。",
-        item: { id: "unlabeled-vial", name: "ラベルのない小瓶", symbol: "◉" }
-      },
-      {
+      "arena": {
         id: "arena",
-        icon: "IX",
-        name: "中央闘牛場",
-        short: "施設中央の円形広場",
-        description: "建物の中央にある、天井のない小さな闘牛場。観客席には誰もいません。",
-        item: null
+        code: "VI",
+        name: "闘牛場",
+        subtitle: "月の見えない円形広場",
+        story: [
+          "通路が突然開け、砂に覆われた円形の広場へ出た。",
+          "天井はないはずなのに、空には星も月も見えない。",
+          "無人の観客席が、暗い壁のように周囲を囲んでいる。",
+          "中央の砂には、赤い線で大きな円が描かれていた。",
+          "円へ足を入れると、遠くで拍手がひとつ鳴る。",
+          "続いて無数の靴音が、観客席を一周した。",
+          "牡牛門の向こうから、砂を蹴る重い音が聞こえる。",
+          "門は閉ざされているが、太い閂は内側から曲がっていた。",
+          "柵のそばには、先端の折れた槍が置かれている。",
+          "拾う者を待つように、その柄だけが温かかった。"
+        ],
+        item: {
+          id: "broken-picador-lance",
+          name: "折れた闘牛槍",
+          symbol: "†",
+          image: "broken-lance.jpg"
+        }
       },
-      {
-        id: "hidden-room",
-        icon: "X",
-        name: "秘密の地下室",
-        short: "衣装室の戸棚の先",
-        description: "錆びた鍵で戸棚の奥が開きました。古い椅子、壁の鎖、用途の分からない革具が残されています。",
-        item: { id: "odd-leather-restraint", name: "用途不明の革製拘束具", symbol: "∞" },
-        secret: true,
-        unlockWhen: "rusted-key"
+      "dining-room": {
+        id: "dining-room",
+        code: "VII",
+        name: "食堂",
+        subtitle: "十二人分の席が待つ部屋",
+        story: [
+          "両開きの扉の先に、異様に長い食卓が現れた。",
+          "白い布の上には、十二人分の食器が整えられている。",
+          "料理はないのに、銀器だけが新しく磨かれていた。",
+          "椅子はすべて引かれ、客が来るのを待っている。",
+          "上座の皿だけが伏せられ、縁に赤い指跡がある。",
+          "壁の時計は止まっているが、振り子の音は続いていた。",
+          "配膳口の奥から、食器を重ねる音が聞こえる。",
+          "卓上の燭台が、入口から順にひとつずつ消えた。",
+          "最後の灯りのそばに、銀の呼び鈴が置かれている。",
+          "触れていないのに、鈴は短く一度だけ鳴った。"
+        ],
+        item: {
+          id: "silver-dinner-bell",
+          name: "銀の呼び鈴",
+          symbol: "♢",
+          image: "silver-bell.jpg"
+        }
+      },
+      "portrait-gallery": {
+        id: "portrait-gallery",
+        code: "VIII",
+        name: "肖像画回廊",
+        subtitle: "視線だけが追ってくる廊下",
+        story: [
+          "細長い回廊には、同じ大きさの肖像画が並んでいた。",
+          "描かれた人物は皆、正面ではなく隣の絵を見ている。",
+          "足を進めるたび、額縁の影が少しずつ形を変えた。",
+          "一枚だけ、顔の部分を黒い絵具で塗り潰されている。",
+          "横から覗くと、絵具の下に笑う口元だけが見えた。",
+          "閉じた窓のカーテンが、内側へ大きく膨らむ。",
+          "硝子の向こうには中庭ではなく、砂の広場が映っていた。",
+          "壁から浮いた額縁の裏で、紙の端が揺れている。",
+          "紙には、この建物の一部らしい線が引かれていた。",
+          "振り返ると、すべての肖像がこちらを見ていた。"
+        ],
+        item: {
+          id: "portrait-fragment",
+          name: "肖像画の裏の紙片",
+          symbol: "▱",
+          image: "portrait-fragment.jpg"
+        }
+      },
+      "clinic": {
+        id: "clinic",
+        code: "IX",
+        name: "診療室",
+        subtitle: "消毒薬の匂いが残る小部屋",
+        story: [
+          "白い扉を開くと、冷たい消毒薬の匂いが鼻を刺した。",
+          "中央には古い診察台があり、革帯が四本付いている。",
+          "棚の薬瓶は整然と並ぶが、ラベルはすべて剥がされていた。",
+          "流し台の蛇口から、一定の間隔で雫が落ちている。",
+          "床の赤い染みは洗われ、薄い輪だけを残していた。",
+          "壁の記録表には、体温ではなく時刻が書かれている。",
+          "最後の時刻は二十二時で、その先は空白だった。",
+          "薬品棚の奥で、小さな瓶が灯りを反射している。",
+          "透明な中身は、揺らしても少しも波を立てない。",
+          "診察台の下から、浅い呼吸のような音が聞こえた。"
+        ],
+        item: {
+          id: "unlabeled-vial",
+          name: "ラベルのない小瓶",
+          symbol: "◉",
+          image: "unlabeled-vial.jpg"
+        }
+      },
+      "torture-room": {
+        id: "torture-room",
+        code: "S-1",
+        name: "拷問部屋",
+        subtitle: "衣裳室のさらに奥",
+        hidden: true,
+        story: [
+          "衣裳をかき分けると、その奥で冷たい石壁に触れた。",
+          "壁を押すと、蝶番の音を殺した細い扉が開いていく。",
+          "下り階段の先には、窓のない小部屋があった。",
+          "壁には鎖が並び、先端の革輪だけが新しい。",
+          "中央の椅子は床へ固定され、動かすことができない。",
+          "道具棚には用途の分からない金具が整然と並んでいる。",
+          "床の排水口から、ぬるい風が吹き上がってきた。",
+          "壁には日付と人数らしい数字が、無数に刻まれている。",
+          "椅子の上に、革製の奇妙な品が置かれていた。",
+          "背後で隠し扉が閉じ、衣裳の擦れる音だけが残った。"
+        ],
+        item: {
+          id: "odd-leather-restraint",
+          name: "用途不明の革製拘束具",
+          symbol: "∞",
+          image: "leather-restraint.jpg"
+        }
+      },
+      "hernando-room": {
+        id: "hernando-room",
+        code: "S-2",
+        name: "エルナンドの自室",
+        subtitle: "書斎の本棚の裏",
+        hidden: true,
+        story: [
+          "本棚へ力を掛けると、床の擦れ跡に沿って静かに動いた。",
+          "その裏には、人ひとりが通れる細い廊下が隠れている。",
+          "廊下の先の部屋だけ、ほかより空気が暖かかった。",
+          "寝台は整えられ、枕にはまだ浅い窪みが残っている。",
+          "机の上には、エルナンドと署名された手紙が並んでいた。",
+          "手紙の宛名はすべて違うが、本文は一字一句同じだった。",
+          "壁には館の見取り図があり、いくつかの部屋が赤く囲まれている。",
+          "窓辺の灰皿では、一本の煙草が細い煙を上げていた。",
+          "寝台の下に、鍵の掛かった小さな木箱が隠されている。",
+          "廊下の向こうから、本棚が元の位置へ戻る音がした。"
+        ],
+        item: {
+          id: "locked-wooden-box",
+          name: "鍵の掛かった木箱",
+          symbol: "□",
+          image: "locked-wooden-box.jpg"
+        }
       }
+    };
+
+    const openingStory = [
+      "EL CAPOTEの玄関扉が、背後で静かに閉じた。",
+      "正面の灯りは弱く、左右の廊下は闇へ沈んでいる。",
+      "古い絨毯には、いくつもの足跡が重なっていた。",
+      "どの足跡も途中で消え、戻ってきた跡は見つからない。",
+      "遠くで鐘が一度だけ鳴り、館の空気が動いた。",
+      "ここから先は、選んだ三つの道が行き先を決める。",
+      "まず、最初の一歩を選んでください。"
     ];
 
-    const roomSpots = {
-      "foyer": [
-        { id: "reception", name: "受付台へ近づく", teaser: "宿泊客の名を消した跡がある。", result: "受付台の表面には、何度も刃物で名前を削った跡があります。引き出しは空ですが、奥から微かにワインの匂いが漂っています。" },
-        { id: "guestbook", name: "古い宿帳を開く", teaser: "ページの大半が破り取られている。", result: "残されたページには日付だけが並び、客の名前は一つもありません。最後の欄には、赤いインクで円が描かれています。" },
-        { id: "stairs", name: "二階への階段を調べる", teaser: "上階は暗く、足音だけが遅れて返る。", result: "階段は途中から闇へ沈んでいます。手すりには新しい指の跡がありますが、今は先へ進めそうにありません。" }
-      ],
-      "costume-room": [
-        { id: "costumes", name: "衣装棚をかき分ける", teaser: "赤と金の衣装が隙間なく並ぶ。", result: "豪奢な衣装には古い血のような染みがあります。どれも丁寧に手入れされていますが、着る者の姿だけがありません。" },
-        { id: "vanity", name: "鏡台を覗き込む", teaser: "鏡の奥だけ、部屋が少し広く見える。", result: "曇った鏡を拭うと、自分の背後に赤い布が揺れました。振り返っても、そこには何もありません。" },
-        { id: "closet", name: "奥のクローゼットへ進む", teaser: "衣装の向こうに、人ひとり通れる空間がある。", result: "衣装をかき分けて奥へ入ると、壁際に赤い布が静かに置かれています。闘牛士が牡牛を誘うために使う、鮮やかなムレータです。", itemId: "crimson-muleta" }
-      ],
-      "dining-room": [
-        { id: "table", name: "長い食卓の奥へ進む", teaser: "十二人分の席が整えられている。", result: "上座の皿だけが裏返され、その隣に小さな銀の呼び鈴があります。磨かれた表面には、触れたばかりのような指紋が残っています。", itemId: "silver-dinner-bell" },
-        { id: "service-door", name: "配膳口を覗く", teaser: "厨房側から冷たい風が漏れている。", result: "配膳口の奥は真っ暗です。耳を澄ますと、誰もいないはずの厨房から食器を重ねる音が聞こえます。" },
-        { id: "fireplace", name: "暖炉の灰を調べる", teaser: "火は消えているのに灰が温かい。", result: "灰の中には焦げた紙片があります。文字は読めませんが、端に雄牛の角を思わせる印が残っています。" }
-      ],
-      "study": [
-        { id: "desk", name: "机の引き出しを開ける", teaser: "半分だけ開いた引き出しがある。", result: "引き出しの奥に破り取られた宿帳が押し込まれています。何人かの名前の横には、赤い丸が付けられています。", itemId: "torn-guest-ledger" },
-        { id: "bookshelf", name: "壁一面の書棚を調べる", teaser: "革張りの本が年代順に並ぶ。", result: "本の内容はすべて闘牛の記録です。敗者の名前だけが丁寧に黒く塗りつぶされています。" },
-        { id: "globe", name: "古い地球儀を回す", teaser: "スペインだけが金色に塗られている。", result: "地球儀を回すと、内部で小さな鍵のようなものが転がる音がします。しかし、継ぎ目は固く閉ざされています。" }
-      ],
-      "portrait-gallery": [
-        { id: "loose-frame", name: "浮いた額縁の裏を見る", teaser: "壁との間に紙が挟まっている。", result: "額縁を持ち上げると、裏から折り畳まれた紙片が落ちました。そこには、この施設の一部らしい見取り図が描かれています。", itemId: "portrait-fragment" },
-        { id: "black-portrait", name: "黒く塗られた肖像を見る", teaser: "顔の部分だけが塗り潰されている。", result: "角度を変えると、黒い絵具の下から笑う口元だけが見えます。視線を外した瞬間、額縁が小さく軋みました。" },
-        { id: "window", name: "回廊の窓を開ける", teaser: "外では風がないのにカーテンが揺れる。", result: "窓は固く閉ざされています。硝子の向こうには中庭ではなく、砂に覆われた闘牛場が広がっています。" }
-      ],
-      "bull-pen": [
-        { id: "straw", name: "湿った藁を払いのける", teaser: "藁の下で金属が光っている。", result: "藁の下から真鍮製の牛房札が現れました。番号ではなく、人の名前らしい文字が刻まれています。", itemId: "brass-stall-tag" },
-        { id: "chain", name: "床を這う鎖を辿る", teaser: "鎖の先は壁の穴へ続いている。", result: "鎖は途中で無理やり引き千切られています。周囲の床には、蹄ではなく人の爪で引っ掻いたような跡があります。" },
-        { id: "trough", name: "空の水桶を覗く", teaser: "底に赤黒い水滴が残っている。", result: "水桶の底に映った自分の顔へ、一瞬だけ角が生えたように見えました。もう一度覗いても、何も映りません。" }
-      ],
-      "wine-cellar": [
-        { id: "barrels", name: "積まれた樽の奥へ進む", teaser: "一本だけ向きの違う樽がある。", result: "樽をずらすと、石壁の隙間から錆びた鍵が落ちました。衣装室の古い錠前に合いそうな大きさです。", itemId: "rusted-key" },
-        { id: "bottle", name: "空のワイン瓶を調べる", teaser: "瓶の中に紙が入っている。", result: "紙には『牡牛を選べ』とだけ書かれています。裏側には十二個の小さな丸が並んでいます。" },
-        { id: "tasting-table", name: "試飲台の染みを見る", teaser: "二つのグラス跡だけが新しい。", result: "片方の染みは甘い香り、もう片方は薬品のような匂いがします。どちらがどちらかは判別できません。" }
-      ],
-      "clinic": [
-        { id: "medicine-shelf", name: "薬品棚の奥を探る", teaser: "ラベルのない小瓶が光っている。", result: "棚の最奥に、透明な液体の入った小瓶があります。栓は固く、匂いを確かめることはできません。", itemId: "unlabeled-vial" },
-        { id: "exam-table", name: "診察台を調べる", teaser: "革帯が不自然な位置に付いている。", result: "診察台の革帯は、人を固定するための配置です。表面には何度も強く引っ張られた跡があります。" },
-        { id: "sink", name: "古い流し台を覗く", teaser: "蛇口から一定間隔で雫が落ちる。", result: "排水口の周りに赤い粉が残っています。水で流そうとしても、粉は石のように固まって動きません。" }
-      ],
-      "arena": [
-        { id: "center", name: "闘牛場の中央へ進む", teaser: "砂の中央に円が描かれている。", result: "円の中心に立つと、無人の観客席から一斉に足を踏み鳴らす音が響きます。音は数秒で途切れました。" },
-        { id: "seats", name: "観客席を調べる", teaser: "一席だけ赤い布が掛けられている。", result: "赤い布の下には、誰かが座っていたような温もりが残っています。座席番号は削り取られています。" },
-        { id: "bull-gate", name: "牡牛門の前へ進む", teaser: "門の向こうから重い呼吸が聞こえる。", result: "門は太い閂で閉じられています。隙間から覗いても暗闇しか見えませんが、何かが砂を蹴る音がします。" }
-      ],
-      "hidden-room": [
-        { id: "chair", name: "古い椅子へ近づく", teaser: "座面に革具が置かれている。", result: "古い椅子の上に、用途の分からない革製の拘束具が置かれています。冗談めいた拾得物ですが、留め具には使用された跡があります。", itemId: "odd-leather-restraint" },
-        { id: "wall-chain", name: "壁の鎖を調べる", teaser: "鎖の高さが人の手首と一致する。", result: "鎖の先には革の輪が付いています。壁には日付と人数らしい数字が、無数に刻まれています。" },
-        { id: "drain", name: "床の排水口を覗く", teaser: "地下から風が吹き上がっている。", result: "排水口の下にはさらに空間が続いています。遠くで水音と、低く笑うような声が響きました。" }
-      ]
-    };
+    const firstChoices = [
+      {
+        id: "right",
+        label: "右へ行く",
+        teaser: "金色の燭台が続く回廊へ。",
+        story: [
+          "右の回廊へ入ると、背後の玄関が闇に消えた。",
+          "金色の燭台が一本ずつ、進む先だけを照らしている。",
+          "壁紙には牡牛と剣の模様が、何度も繰り返されていた。",
+          "足音は半歩遅れて返り、誰かが後ろを歩くように聞こえる。",
+          "やがて回廊は三つに分かれ、それぞれ違う匂いを運んできた。",
+          "鏡の冷気、地下の湿気、そして赤い絨毯の甘い香り。",
+          "次に進む道を選ばなければならない。"
+        ],
+        next: [
+          {
+            id: "mirror",
+            label: "鏡の回廊を右へ",
+            teaser: "映る人数が、ひとり多い。",
+            story: [
+              "鏡の回廊では、歩くたびに姿が細かく分かれていく。",
+              "一番奥の鏡だけ、自分ではなく閉ざされた扉を映していた。",
+              "鏡へ近づくと、どこからか布を引きずる音が聞こえる。",
+              "三つの入口が並び、その上に古い紋章が刻まれていた。",
+              "最後の選択をして、扉の向こうへ進む。"
+            ],
+            next: [
+              { id: "frame", label: "金の額縁の扉を開ける", teaser: "絵具と古い木の匂いがする。", roomId: "portrait-gallery" },
+              { id: "velvet", label: "紫の布が挟まった扉へ", teaser: "扉の隙間で衣裳が揺れる。", roomId: "costume-room" },
+              { id: "stairs", label: "細い階段をまっすぐ上る", teaser: "上階から紙をめくる音がする。", roomId: "study" }
+            ]
+          },
+          {
+            id: "down",
+            label: "冷気のする階段を奥へ",
+            teaser: "地下から雫の音が響く。",
+            story: [
+              "石の階段を降りると、壁の温度が急に下がった。",
+              "踊り場には空の瓶と、白い布と、湿った藁が落ちている。",
+              "三つの痕跡は、それぞれ別の暗い通路へ続いていた。",
+              "背後の階段では、誰かが一段だけ降りる音がした。",
+              "灯りが消える前に、最後の道を決める。"
+            ],
+            next: [
+              { id: "bottle", label: "瓶の転がる通路へ", teaser: "甘い葡萄酒の香りを追う。", roomId: "wine-cellar" },
+              { id: "white", label: "白い布の扉を開ける", teaser: "消毒薬の匂いが鼻を刺す。", roomId: "clinic" },
+              { id: "straw", label: "藁の続く道をまっすぐ", teaser: "重い鎖の音が近づく。", roomId: "bull-pen" }
+            ]
+          },
+          {
+            id: "carpet",
+            label: "赤い絨毯をまっすぐ",
+            teaser: "柔らかな床が足音を吸い込む。",
+            story: [
+              "赤い絨毯は、血の流れのように奥へ伸びていた。",
+              "両側の扉には名前がなく、金色の番号だけがある。",
+              "絨毯の途中で、羽根ペンと金糸と銀の匙が落ちている。",
+              "拾おうとすると、三つとも扉の下へ滑り込んだ。",
+              "どの扉を追うか、それが最後の選択になる。"
+            ],
+            next: [
+              { id: "pen", label: "羽根ペンの消えた扉へ", teaser: "紙を引っ掻く音が続いている。", roomId: "study" },
+              { id: "thread", label: "金糸の消えた扉へ", teaser: "かすかに香水の匂いがする。", roomId: "costume-room" },
+              { id: "spoon", label: "銀の匙の消えた扉へ", teaser: "食器を並べる音が聞こえる。", roomId: "dining-room" }
+            ]
+          }
+        ]
+      },
+      {
+        id: "left",
+        label: "左へ行く",
+        teaser: "石壁に沿う暗い通路へ。",
+        story: [
+          "左の通路は狭く、肩が冷たい石壁へ触れた。",
+          "床には砂と藁が混じり、何か重いものを引いた跡がある。",
+          "天井の管から、遠くの歓声のような音が伝わってきた。",
+          "途中の壁には、角で突いたような深い穴が並んでいる。",
+          "通路の先で、石段と燭台と獣の匂いが三方へ分かれた。",
+          "どの道にも、人の足跡がひとつずつ続いている。",
+          "次に追う足跡を選んでください。"
+        ],
+        next: [
+          {
+            id: "stone",
+            label: "削れた石段を右へ",
+            teaser: "砂を踏む音が下から聞こえる。",
+            story: [
+              "削れた石段には、何度も重いものが通った跡がある。",
+              "降り切ると、砂、鉄、葡萄酒の三つの匂いが混ざった。",
+              "壁には三本の矢印があり、すべて違う手で描かれている。",
+              "一番古い矢印だけが、赤黒く変色していた。",
+              "最後に信じる印を選び、その先へ進む。"
+            ],
+            next: [
+              { id: "chain", label: "鎖の音を追って右へ", teaser: "湿った藁が靴に絡む。", roomId: "bull-pen" },
+              { id: "sand", label: "砂の明るい方へ進む", teaser: "無人の拍手が近づいてくる。", roomId: "arena" },
+              { id: "drop", label: "雫の音へまっすぐ", teaser: "甘い香りが地下へ続く。", roomId: "wine-cellar" }
+            ]
+          },
+          {
+            id: "candles",
+            label: "燭台の先を左へ",
+            teaser: "三本の炎が違う色に揺れる。",
+            story: [
+              "左の曲がり角には、三本の燭台が立っていた。",
+              "白い炎、青い炎、赤い炎が別々の扉を照らしている。",
+              "白い炎の下には紙片、青い炎の下には額縁の木屑。",
+              "赤い炎の下には、銀の食器がひとつ落ちていた。",
+              "炎が消える前に、最後の扉を選ぶ。"
+            ],
+            next: [
+              { id: "paper", label: "紙片のある扉を開ける", teaser: "奥で羽根ペンが走っている。", roomId: "study" },
+              { id: "paint", label: "木屑のある扉を開ける", teaser: "誰かの視線を背中に感じる。", roomId: "portrait-gallery" },
+              { id: "silver", label: "銀器のある扉を開ける", teaser: "呼び鈴が短く鳴った。", roomId: "dining-room" }
+            ]
+          },
+          {
+            id: "beast",
+            label: "獣臭のする道をまっすぐ",
+            teaser: "壁の向こうで何かが息をする。",
+            story: [
+              "獣臭のする道では、壁の向こうから呼吸が聞こえた。",
+              "速度を上げると呼吸も速まり、止まると同時に止まる。",
+              "やがて床に、蹄跡、砂の円、白い包帯が現れた。",
+              "三つの痕跡は別の扉へ続き、途中で交わっていない。",
+              "どの痕跡を追うかが、最後の選択になる。"
+            ],
+            next: [
+              { id: "hoof", label: "蹄跡を追って右へ", teaser: "鎖の擦れる音がする。", roomId: "bull-pen" },
+              { id: "circle", label: "砂の円を越えて奥へ", teaser: "遠くから歓声が聞こえる。", roomId: "arena" },
+              { id: "bandage", label: "包帯の先へまっすぐ", teaser: "薬品の匂いが強くなる。", roomId: "clinic" }
+            ]
+          }
+        ]
+      },
+      {
+        id: "straight",
+        label: "まっすぐ行く",
+        teaser: "正面の大扉を押し開ける。",
+        story: [
+          "正面の大扉は、触れる前に内側へ開いた。",
+          "その先は広い中央廊下で、天井から赤い幕が垂れている。",
+          "幕の向こうを、人影が横切ったように見えた。",
+          "呼び止めても返事はなく、代わりに食器の音が響いた。",
+          "廊下は金色の扉、暖かな匂い、青白い中庭へ分かれている。",
+          "どの道も明るいが、人の姿だけは見つからない。",
+          "次に向かう場所を選んでください。"
+        ],
+        next: [
+          {
+            id: "gold",
+            label: "金色の扉を右へ",
+            teaser: "扉の向こうで時計が鳴る。",
+            story: [
+              "金色の扉の先には、豪奢な小広間があった。",
+              "正面に三つの扉が並び、それぞれ別の紋章を持つ。",
+              "杯の紋章、羽根ペンの紋章、目の紋章。",
+              "時計が二十二回鳴ると、三つの取っ手が同時に動いた。",
+              "ひとつを選び、最後の扉を開ける。"
+            ],
+            next: [
+              { id: "cup", label: "杯の紋章を選ぶ", teaser: "銀器の触れ合う音がする。", roomId: "dining-room" },
+              { id: "quill", label: "羽根ペンの紋章を選ぶ", teaser: "古い紙と煙草の匂いがする。", roomId: "study" },
+              { id: "eye", label: "目の紋章を選ぶ", teaser: "扉の隙間から視線を感じる。", roomId: "portrait-gallery" }
+            ]
+          },
+          {
+            id: "warm",
+            label: "暖かな匂いを追って奥へ",
+            teaser: "香草と葡萄酒の香りが混じる。",
+            story: [
+              "暖かな匂いを追うと、配膳用の細い廊下へ入った。",
+              "右の壁は熱く、左の床は地下のように冷たい。",
+              "正面からは、長い食卓を囲む囁き声が聞こえる。",
+              "香草、葡萄酒、銀器の三つの手掛かりが道を分けた。",
+              "最後に追う匂いを選んでください。"
+            ],
+            next: [
+              { id: "herbs", label: "香草の匂いを右へ追う", teaser: "竈の熱が近づいてくる。", roomId: "kitchen" },
+              { id: "wine", label: "葡萄酒の匂いを奥へ追う", teaser: "石段の下から雫が聞こえる。", roomId: "wine-cellar" },
+              { id: "plates", label: "銀器の音へまっすぐ", teaser: "十二脚の椅子が床を擦る。", roomId: "dining-room" }
+            ]
+          },
+          {
+            id: "courtyard",
+            label: "青白い中庭へまっすぐ",
+            teaser: "空のない場所に月光が落ちる。",
+            story: [
+              "青白い光の先は、屋根のない中庭に見えた。",
+              "しかし見上げても空はなく、黒い天井が広がっている。",
+              "地面には砂、藁、紫の糸が三方向へ続いていた。",
+              "中央の噴水からは、水の代わりに乾いた風が吹く。",
+              "最後の痕跡をひとつ選び、その先へ進む。"
+            ],
+            next: [
+              { id: "sand", label: "砂の跡を右へ辿る", teaser: "観客席のざわめきが聞こえる。", roomId: "arena" },
+              { id: "straw", label: "藁の跡を奥へ辿る", teaser: "鎖と重い鼻息が近づく。", roomId: "bull-pen" },
+              { id: "thread", label: "紫の糸をまっすぐ辿る", teaser: "衣裳の擦れる音がする。", roomId: "costume-room" }
+            ]
+          }
+        ]
+      }
+    ];
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -700,8 +1154,13 @@
       playerName: localStorage.getItem("sp-explore-player-name") || "",
       claims: {},
       inventory: {},
+      dailySlot: null,
       logs: [],
-      listenersStarted: false
+      serverOffset: 0,
+      periodStart: 0,
+      listenersStarted: false,
+      reconciling: false,
+      claimInProgress: false
     };
 
     const el = {
@@ -719,14 +1178,67 @@
       miniLog: document.getElementById("miniLog"),
       fullLog: document.getElementById("fullLog"),
       exploreHome: document.getElementById("exploreHome"),
-      roomGrid: document.getElementById("roomGrid"),
-      roomPage: document.getElementById("roomPage"),
-      spotPage: document.getElementById("spotPage"),
+      dailyStatusTitle: document.getElementById("dailyStatusTitle"),
+      dailyStatusNote: document.getElementById("dailyStatusNote"),
+      dailyCount: document.getElementById("dailyCount"),
+      journeyIntro: document.getElementById("journeyIntro"),
+      journeyPage: document.getElementById("journeyPage"),
+      arrivalPage: document.getElementById("arrivalPage"),
+      itemPage: document.getElementById("itemPage"),
       inventoryList: document.getElementById("inventoryList"),
       toast: document.getElementById("toast")
     };
 
     let toastTimer = null;
+    let periodTimer = null;
+
+    function makeElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function serverNow() {
+      return Date.now() + Number(state.serverOffset || 0);
+    }
+
+    function getPeriodStart(timestamp) {
+      const local = new Date(timestamp + JST_OFFSET);
+      const year = local.getUTCFullYear();
+      const month = local.getUTCMonth();
+      const day = local.getUTCDate();
+      let start = Date.UTC(year, month, day, RESET_HOUR_JST - 9, 0, 0, 0);
+      if (timestamp < start) start = Date.UTC(year, month, day - 1, RESET_HOUR_JST - 9, 0, 0, 0);
+      return start;
+    }
+
+    function getPeriodKey(periodStart) {
+      const local = new Date(periodStart + JST_OFFSET);
+      const year = local.getUTCFullYear();
+      const month = String(local.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(local.getUTCDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+
+    function formatReset(timestamp) {
+      return new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(timestamp));
+    }
+
+    function formatTime(timestamp) {
+      if (!Number.isFinite(Number(timestamp))) return "--:--";
+      return new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(Number(timestamp)));
+    }
 
     function setConnection(kind, text) {
       el.connectionStatus.classList.remove("online", "error");
@@ -743,20 +1255,590 @@
       window.clearTimeout(toastTimer);
       el.toast.textContent = message;
       el.toast.classList.add("show");
-      toastTimer = window.setTimeout(() => el.toast.classList.remove("show"), 2800);
+      toastTimer = window.setTimeout(function () {
+        el.toast.classList.remove("show");
+      }, 3000);
     }
 
-    function formatTime(timestamp) {
-      if (!Number.isFinite(Number(timestamp))) return "--:--";
-      return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" }).format(new Date(Number(timestamp)));
+    function friendlyError(error) {
+      const code = error && error.code ? error.code : "";
+      if (code.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
+      if (code.includes("permission-denied")) return "Firebaseのルール更新が必要です。新しい database-rules.json の内容を公開してください。";
+      if (code.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。";
+      if (code.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
+      return "接続中に問題が起きました。少し待って再読み込みしてください。";
     }
 
-    function showNameModal(canClose = true) {
+    function handleError(error) {
+      console.error(error);
+      setConnection("error", "要確認");
+      showNotice(friendlyError(error));
+    }
+
+    function currentClaimByUser() {
+      if (!state.user) return null;
+      return Object.values(state.claims).find(function (claim) {
+        return claim &&
+          claim.uid === state.user.uid &&
+          Number(claim.periodStart || 0) === Number(state.periodStart);
+      }) || null;
+    }
+
+    function hasClaimedToday() {
+      const slotDone = state.dailySlot &&
+        Number(state.dailySlot.periodStart || 0) === Number(state.periodStart) &&
+        state.dailySlot.status === "claimed";
+      return Boolean(slotDone || currentClaimByUser());
+    }
+
+    function checkPeriodChange() {
+      const nextPeriod = getPeriodStart(serverNow());
+      if (Number(state.periodStart) === Number(nextPeriod)) return;
+      state.periodStart = nextPeriod;
+      renderExploreHome();
+      if (hasClaimedToday()) setRoute("explore");
+      handleRoute(false);
+    }
+
+    function startPeriodClock() {
+      window.clearInterval(periodTimer);
+      state.periodStart = getPeriodStart(serverNow());
+      periodTimer = window.setInterval(checkPeriodChange, 30000);
+    }
+
+    function renderExploreHome() {
+      const done = hasClaimedToday();
+      const nextReset = state.periodStart + DAY;
+      el.dailyCount.textContent = done ? "1 / 1" : "0 / 1";
+      el.dailyStatusTitle.textContent = done ? "本日のアイテムを取得済み" : "本日の取得数";
+      el.dailyStatusNote.textContent = "次の更新は " + formatReset(nextReset) + "（日本時間）です。";
+      el.journeyIntro.replaceChildren();
+
+      if (done) {
+        el.journeyIntro.className = "ended-panel";
+        el.journeyIntro.append(
+          makeElement("div", "ended-mark", "◇"),
+          makeElement("h2", "", "本日の探索は終了しました"),
+          makeElement("p", "", "次の22:00になると、再び探索できます。前日までに誰かが取得したアイテムは復活しません。")
+        );
+        return;
+      }
+
+      el.journeyIntro.className = "journey-card";
+      el.journeyIntro.append(
+        makeElement("p", "choice-step", "BEGIN EXPLORATION"),
+        makeElement("h2", "", "探索へ行く"),
+        makeElement("p", "", "扉の向こうでは、選んだ道の組み合わせによって到着する場所が変わります。三つの分岐を越え、EL CAPOTEの奥へ進んでください。")
+      );
+      const start = makeElement("button", "primary-button", "探索へ行く");
+      start.type = "button";
+      start.addEventListener("click", function () {
+        if (!ensureCanExplore()) return;
+        setRoute("path/1");
+        writeLog(state.playerName + "が探索へ向かいました。", "move", { stage: 0 }).catch(handleError);
+      });
+      el.journeyIntro.append(start);
+    }
+
+    function renderStory(parent, lines) {
+      const wrap = makeElement("div", "story-lines");
+      (lines || []).forEach(function (line) {
+        wrap.append(makeElement("p", "", line));
+      });
+      parent.append(wrap);
+    }
+
+    function makeChoiceButton(choice, callback) {
+      const button = makeElement("button", "spot-link");
+      button.type = "button";
+      const copy = makeElement("span");
+      copy.append(
+        makeElement("strong", "", choice.label),
+        makeElement("small", "", choice.teaser)
+      );
+      const arrow = makeElement("span", "spot-arrow", "›");
+      arrow.setAttribute("aria-hidden", "true");
+      button.append(copy, arrow);
+      button.addEventListener("click", callback);
+      return button;
+    }
+
+    function makeBackButton(label, target) {
+      const button = makeElement("button", "page-back", "← " + label);
+      button.type = "button";
+      button.addEventListener("click", function () {
+        setRoute(target);
+      });
+      return button;
+    }
+
+    function getFirst(firstId) {
+      return firstChoices.find(function (choice) { return choice.id === firstId; }) || null;
+    }
+
+    function getSecond(firstId, secondId) {
+      const first = getFirst(firstId);
+      return first ? first.next.find(function (choice) { return choice.id === secondId; }) || null : null;
+    }
+
+    function getThird(firstId, secondId, thirdId) {
+      const second = getSecond(firstId, secondId);
+      return second ? second.next.find(function (choice) { return choice.id === thirdId; }) || null : null;
+    }
+
+    function ensureCanExplore() {
+      if (!state.user || !state.playerName) {
+        showNameModal(false);
+        return false;
+      }
+      if (hasClaimedToday()) {
+        showToast("本日の探索は終了しました。");
+        setRoute("explore");
+        return false;
+      }
+      return true;
+    }
+
+    function moveAlong(choice, target, stage, extra) {
+      if (!ensureCanExplore()) return;
+      setRoute(target);
+      const payload = Object.assign({ stage: stage }, extra || {});
+      writeLog(state.playerName + "が「" + choice.label + "」を選びました。", "move", payload).catch(handleError);
+    }
+
+    function renderPathPage(stage, firstId, secondId) {
+      el.journeyPage.replaceChildren();
+      let title = "";
+      let story = [];
+      let choices = [];
+      let backTarget = "explore";
+      let backLabel = "入口へ戻る";
+
+      if (stage === 1) {
+        title = "最初の選択";
+        story = openingStory;
+        choices = firstChoices;
+      } else if (stage === 2) {
+        const first = getFirst(firstId);
+        if (!first) return false;
+        title = "次の選択";
+        story = first.story;
+        choices = first.next;
+        backTarget = "path/1";
+        backLabel = "最初の分岐へ戻る";
+      } else {
+        const first = getFirst(firstId);
+        const second = getSecond(firstId, secondId);
+        if (!first || !second) return false;
+        title = "さらに次の選択";
+        story = second.story;
+        choices = second.next;
+        backTarget = "path/2/" + firstId;
+        backLabel = "前の分岐へ戻る";
+      }
+
+      const header = makeElement("section", "route-header");
+      header.append(
+        makeElement("p", "choice-step", "STEP " + stage + " / 3"),
+        makeElement("h2", "route-title", title)
+      );
+      renderStory(header, story);
+
+      const instruction = makeElement("h3", "choice-heading", "どちらへ進みますか？");
+      const note = makeElement("p", "choice-note", "選んだ三つの道の組み合わせで、到着する場所が決まります。");
+      const list = makeElement("div", "spot-list");
+
+      choices.forEach(function (choice) {
+        list.append(makeChoiceButton(choice, function () {
+          if (stage === 1) {
+            moveAlong(choice, "path/2/" + choice.id, 1, { firstChoice: choice.id });
+          } else if (stage === 2) {
+            moveAlong(choice, "path/3/" + firstId + "/" + choice.id, 2, {
+              firstChoice: firstId,
+              secondChoice: choice.id
+            });
+          } else {
+            const room = rooms[choice.roomId];
+            if (!room || !ensureCanExplore()) return;
+            setRoute("arrival/" + room.id + "/" + firstId + "/" + secondId + "/" + choice.id);
+            writeLog(state.playerName + "が「" + room.name + "」にたどり着きました。", "explore", {
+              locationId: room.id,
+              firstChoice: firstId,
+              secondChoice: secondId,
+              thirdChoice: choice.id
+            }).catch(handleError);
+          }
+        }));
+      });
+
+      el.journeyPage.append(makeBackButton(backLabel, backTarget), header, instruction, note, list);
+      return true;
+    }
+
+    function primaryContext(firstId, secondId, thirdId) {
+      return {
+        kind: "primary",
+        firstId: firstId,
+        secondId: secondId,
+        thirdId: thirdId
+      };
+    }
+
+    function secretContext(parentId, firstId, secondId, thirdId) {
+      return {
+        kind: "secret",
+        parentId: parentId,
+        firstId: firstId,
+        secondId: secondId,
+        thirdId: thirdId
+      };
+    }
+
+    function arrivalRoute(roomId, context) {
+      if (context.kind === "secret") {
+        return "secret/" + roomId + "/" + context.parentId + "/" + context.firstId + "/" + context.secondId + "/" + context.thirdId;
+      }
+      return "arrival/" + roomId + "/" + context.firstId + "/" + context.secondId + "/" + context.thirdId;
+    }
+
+    function itemRoute(roomId, context) {
+      if (context.kind === "secret") {
+        return "item/" + roomId + "/secret/" + context.parentId + "/" + context.firstId + "/" + context.secondId + "/" + context.thirdId;
+      }
+      return "item/" + roomId + "/primary/" + context.firstId + "/" + context.secondId + "/" + context.thirdId;
+    }
+
+    function renderArrivalPage(room, context) {
+      el.arrivalPage.replaceChildren();
+      const backTarget = context.kind === "secret"
+        ? arrivalRoute(context.parentId, primaryContext(context.firstId, context.secondId, context.thirdId))
+        : "path/3/" + context.firstId + "/" + context.secondId;
+      const backLabel = context.kind === "secret"
+        ? rooms[context.parentId].name + "へ戻る"
+        : "最後の分岐へ戻る";
+
+      const header = makeElement("section", "route-header");
+      header.append(
+        makeElement("p", "route-kicker", "AREA " + room.code + " / ARRIVAL"),
+        makeElement("h2", "route-title", room.name),
+        makeElement("p", "route-copy", room.subtitle)
+      );
+      renderStory(header, room.story);
+
+      const result = makeElement("section", "result-panel");
+      result.append(
+        makeElement("h3", "", "部屋の奥を調べる"),
+        makeElement("p", "", "室内の物語を読み終えたら、さらに奥へ進んでください。そこに残されている品を確かめられます。")
+      );
+
+      const itemButton = makeElement("button", "primary-button", "さらに奥へ進む");
+      itemButton.type = "button";
+      itemButton.addEventListener("click", function () {
+        if (!ensureCanExplore()) return;
+        setRoute(itemRoute(room.id, context));
+        writeLog(state.playerName + "が「" + room.name + "」の奥を調べています。", "explore", {
+          locationId: room.id
+        }).catch(handleError);
+      });
+      result.append(itemButton);
+
+      if (room.secretExit) {
+        const secretButton = makeElement("button", "secondary-wide", room.secretExit.label);
+        secretButton.type = "button";
+        secretButton.addEventListener("click", function () {
+          if (!ensureCanExplore()) return;
+          const hiddenRoom = rooms[room.secretExit.roomId];
+          const nextContext = secretContext(room.id, context.firstId, context.secondId, context.thirdId);
+          setRoute(arrivalRoute(hiddenRoom.id, nextContext));
+          writeLog(state.playerName + "が" + room.secretExit.log, "secret", {
+            locationId: hiddenRoom.id,
+            parentLocationId: room.id
+          }).catch(handleError);
+        });
+        result.append(secretButton);
+      }
+
+      const restart = makeElement("button", "secondary-wide", "品を取らず、別の道へ戻る");
+      restart.type = "button";
+      restart.addEventListener("click", function () {
+        setRoute("path/1");
+      });
+      result.append(restart);
+
+      el.arrivalPage.append(makeBackButton(backLabel, backTarget), header, result);
+    }
+
+    function makeItemVisual(item) {
+      const visual = makeElement("div", "item-visual");
+
+      function showFallback() {
+        visual.classList.remove("has-image");
+        visual.replaceChildren();
+        const fallback = makeElement("div", "item-fallback");
+        fallback.append(makeElement("span", "item-visual-symbol", item.symbol || "◇"));
+        visual.append(fallback);
+      }
+
+      if (!item.image) {
+        showFallback();
+        return visual;
+      }
+
+      visual.classList.add("has-image");
+      const image = makeElement("img", "item-image");
+      image.src = item.image;
+      image.alt = item.name;
+      image.loading = "eager";
+      image.addEventListener("error", showFallback, { once: true });
+      visual.append(image);
+      return visual;
+    }
+
+    function renderItemPage(room, context) {
+      el.itemPage.replaceChildren();
+      const backTarget = arrivalRoute(room.id, context);
+      const result = makeElement("section", "result-panel");
+      const claim = state.claims[room.item.id];
+
+      result.append(
+        makeElement("p", "route-kicker", room.name),
+        makeElement("h3", "", "奥に残されたもの")
+      );
+
+      if (claim) {
+        result.append(makeElement("div", "velvet-empty", "赤いベルベットの上には、もう何も残されていない"));
+        const returnButton = makeElement("button", "primary-button", "別の道へ戻って探索を続ける");
+        returnButton.type = "button";
+        returnButton.addEventListener("click", function () {
+          setRoute("path/1");
+        });
+        result.append(returnButton);
+      } else {
+        const discovery = makeElement("div", "item-discovery");
+        discovery.append(
+          makeElement("p", "find-label", "見つけたもの"),
+          makeItemVisual(room.item)
+        );
+
+        if (!room.item.image) {
+          discovery.append(makeElement("p", "route-copy", room.item.name));
+        }
+
+        const claimButton = makeElement("button", "primary-button", "このアイテムを入手する");
+        claimButton.type = "button";
+        claimButton.addEventListener("click", function () {
+          claimItem(room, room.item, claimButton);
+        });
+
+        const leaveButton = makeElement("button", "secondary-wide", "今回は取らず、別の道へ戻る");
+        leaveButton.type = "button";
+        leaveButton.addEventListener("click", function () {
+          setRoute("path/1");
+        });
+
+        discovery.append(claimButton, leaveButton);
+        result.append(discovery);
+      }
+
+      el.itemPage.append(makeBackButton(room.name + "へ戻る", backTarget), result);
+    }
+
+    function routeParts() {
+      return window.location.hash.replace(/^#/, "").split("/").filter(Boolean);
+    }
+
+    function setRoute(hash) {
+      const next = hash.startsWith("#") ? hash : "#" + hash;
+      if (window.location.hash === next) {
+        handleRoute(true);
+      } else {
+        window.location.hash = next;
+      }
+    }
+
+    function activateMainView(target) {
+      document.querySelectorAll(".view").forEach(function (view) {
+        view.classList.toggle("active", view.dataset.view === target);
+      });
+      document.querySelectorAll(".tab-button").forEach(function (button) {
+        button.classList.toggle("active", button.dataset.target === target);
+      });
+    }
+
+    function resetSubpages() {
+      el.exploreHome.classList.remove("hidden");
+      el.journeyPage.classList.remove("show");
+      el.arrivalPage.classList.remove("show");
+      el.itemPage.classList.remove("show");
+    }
+
+    function handleRoute(shouldScroll) {
+      checkPeriodChange();
+      renderExploreHome();
+      const parts = routeParts();
+      const root = parts[0] || "explore";
+      const target = root === "inventory" || root === "log" ? root : "explore";
+      activateMainView(target);
+      resetSubpages();
+
+      if (target !== "explore") {
+        document.body.classList.remove("subpage");
+        if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      if (hasClaimedToday() && root !== "explore") {
+        window.history.replaceState(null, "", "#explore");
+        document.body.classList.remove("subpage");
+        renderExploreHome();
+        if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      let valid = true;
+      if (root === "path") {
+        const stage = Number(parts[1]);
+        valid = renderPathPage(stage, parts[2], parts[3]);
+        if (valid) {
+          el.exploreHome.classList.add("hidden");
+          el.journeyPage.classList.add("show");
+        }
+      } else if (root === "arrival") {
+        const room = rooms[parts[1]];
+        const context = primaryContext(parts[2], parts[3], parts[4]);
+        const third = getThird(context.firstId, context.secondId, context.thirdId);
+        valid = Boolean(room && !room.hidden && third && third.roomId === room.id);
+        if (valid) {
+          renderArrivalPage(room, context);
+          el.exploreHome.classList.add("hidden");
+          el.arrivalPage.classList.add("show");
+        }
+      } else if (root === "secret") {
+        const room = rooms[parts[1]];
+        const parent = rooms[parts[2]];
+        const context = secretContext(parts[2], parts[3], parts[4], parts[5]);
+        const third = getThird(context.firstId, context.secondId, context.thirdId);
+        valid = Boolean(
+          room && room.hidden &&
+          parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
+          third && third.roomId === parent.id
+        );
+        if (valid) {
+          renderArrivalPage(room, context);
+          el.exploreHome.classList.add("hidden");
+          el.arrivalPage.classList.add("show");
+        }
+      } else if (root === "item") {
+        const room = rooms[parts[1]];
+        let context = null;
+        let contextIsValid = false;
+        if (parts[2] === "primary") {
+          context = primaryContext(parts[3], parts[4], parts[5]);
+          const third = getThird(context.firstId, context.secondId, context.thirdId);
+          contextIsValid = Boolean(room && !room.hidden && third && third.roomId === room.id);
+        } else if (parts[2] === "secret") {
+          context = secretContext(parts[3], parts[4], parts[5], parts[6]);
+          const parent = rooms[context.parentId];
+          const third = getThird(context.firstId, context.secondId, context.thirdId);
+          contextIsValid = Boolean(
+            room && room.hidden &&
+            parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
+            third && third.roomId === parent.id
+          );
+        }
+        valid = Boolean(room && room.item && context && contextIsValid);
+        if (valid) {
+          renderItemPage(room, context);
+          el.exploreHome.classList.add("hidden");
+          el.itemPage.classList.add("show");
+        }
+      } else if (root !== "explore") {
+        valid = false;
+      }
+
+      document.body.classList.toggle("subpage", root !== "explore" && valid);
+      if (!valid) {
+        window.history.replaceState(null, "", "#explore");
+        resetSubpages();
+        document.body.classList.remove("subpage");
+      }
+      if (shouldScroll) window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function makeLogCard(log) {
+      const card = makeElement("div", "log-card");
+      const time = makeElement("time", "", formatTime(log.timestamp));
+      time.dateTime = new Date(Number(log.timestamp) || Date.now()).toISOString();
+      card.append(time, makeElement("span", "", log.message || "記録が追加されました。"));
+      return card;
+    }
+
+    function renderLogs() {
+      const newest = state.logs.slice().sort(function (a, b) {
+        return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+      });
+      el.miniLog.replaceChildren();
+      if (!newest.length) {
+        el.miniLog.append(makeElement("li", "empty-note", "最初の行動を待っています。"));
+      } else {
+        newest.slice(0, 3).forEach(function (log) {
+          const row = makeElement("li");
+          row.append(
+            makeElement("time", "", formatTime(log.timestamp)),
+            makeElement("span", "", log.message)
+          );
+          el.miniLog.append(row);
+        });
+      }
+
+      el.fullLog.replaceChildren();
+      if (!newest.length) {
+        el.fullLog.append(makeElement("div", "empty-panel", "まだ行動記録はありません。"));
+      } else {
+        newest.forEach(function (log) {
+          el.fullLog.append(makeLogCard(log));
+        });
+      }
+    }
+
+    function itemSymbol(itemId, savedSymbol) {
+      if (savedSymbol) return savedSymbol;
+      const room = Object.values(rooms).find(function (entry) {
+        return entry.item && entry.item.id === itemId;
+      });
+      return room && room.item ? room.item.symbol : "◇";
+    }
+
+    function renderInventory() {
+      const entries = Object.entries(state.inventory).sort(function (a, b) {
+        return Number(b[1].acquiredAt || 0) - Number(a[1].acquiredAt || 0);
+      });
+      el.inventoryList.replaceChildren();
+      if (!entries.length) {
+        el.inventoryList.append(makeElement("div", "empty-panel", "所持品はまだありません。入手した品はBANDのプロフィールにも記録してください。"));
+        return;
+      }
+      entries.forEach(function (entry) {
+        const itemId = entry[0];
+        const item = entry[1];
+        const card = makeElement("div", "inventory-card");
+        const symbol = makeElement("div", "item-symbol", itemSymbol(itemId, item.symbol));
+        const copy = makeElement("div");
+        copy.append(
+          makeElement("strong", "", item.name || "名称不明の品"),
+          makeElement("small", "", (item.locationName || "場所不明") + "で入手・" + formatTime(item.acquiredAt))
+        );
+        card.append(symbol, copy);
+        el.inventoryList.append(card);
+      });
+    }
+
+    function showNameModal(canClose) {
       el.nameInput.value = state.playerName;
       el.nameError.textContent = "";
       el.cancelNameButton.hidden = !canClose;
       el.nameModal.classList.add("show");
-      window.setTimeout(() => el.nameInput.focus(), 80);
+      window.setTimeout(function () { el.nameInput.focus(); }, 80);
     }
 
     function hideNameModal() {
@@ -764,432 +1846,188 @@
       el.nameModal.classList.remove("show");
     }
 
-    function friendlyError(error) {
-      const code = error?.code || "";
-      if (code.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
-      if (code.includes("permission-denied")) return "データベースのルール設定がまだ完了していません。Firebaseの「ルール」を確認してください。";
-      if (code.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。Authenticationの承認済みドメインへ追加してください。";
-      if (code.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
-      return "接続中に問題が起きました。少し待って再読み込みしてください。";
-    }
-
-    function handleError(error) {
-      console.error(error);
-      const message = friendlyError(error);
-      setConnection("error", "要確認");
-      showNotice(message);
-    }
-
-    function makeLogCard(log) {
-      const card = document.createElement("div");
-      card.className = "log-card";
-      const time = document.createElement("time");
-      time.dateTime = new Date(Number(log.timestamp) || Date.now()).toISOString();
-      time.textContent = formatTime(log.timestamp);
-      const message = document.createElement("span");
-      message.textContent = log.message || "記録が追加されました。";
-      card.append(time, message);
-      return card;
-    }
-
-    function renderLogs() {
-      const newest = [...state.logs].sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
-      el.miniLog.replaceChildren();
-      if (!newest.length) {
-        const empty = document.createElement("li");
-        empty.className = "empty-note";
-        empty.textContent = "最初の行動を待っています。";
-        el.miniLog.append(empty);
-      } else {
-        newest.slice(0, 3).forEach((log) => {
-          const li = document.createElement("li");
-          const time = document.createElement("time");
-          time.textContent = formatTime(log.timestamp);
-          const message = document.createElement("span");
-          message.textContent = log.message;
-          li.append(time, message);
-          el.miniLog.append(li);
-        });
-      }
-
-      el.fullLog.replaceChildren();
-      if (!newest.length) {
-        const empty = document.createElement("div");
-        empty.className = "empty-panel";
-        empty.textContent = "まだ行動記録はありません。";
-        el.fullLog.append(empty);
-      } else {
-        newest.forEach((log) => el.fullLog.append(makeLogCard(log)));
-      }
-    }
-
-    function availableRooms() {
-      return rooms.filter((room) => !room.secret || state.claims[room.unlockWhen]);
-    }
-
-    function renderRooms() {
-      const available = availableRooms();
-      el.roomGrid.replaceChildren();
-      available.forEach((room) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "room-button";
-
-        const icon = document.createElement("span");
-        icon.className = "room-icon";
-        icon.textContent = room.icon;
-        const name = document.createElement("strong");
-        name.textContent = room.name;
-        const short = document.createElement("small");
-        short.textContent = room.short;
-        button.append(icon, name, short);
-        if (room.secret) {
-          const tag = document.createElement("span");
-          tag.className = "secret-tag";
-          tag.textContent = "鍵で解放されました";
-          button.append(tag);
-        }
-        button.addEventListener("click", () => enterRoom(room));
-        el.roomGrid.append(button);
-      });
-    }
-
-    function getRoom(roomId) {
-      return availableRooms().find((room) => room.id === roomId) || null;
-    }
-
-    function getSpot(roomId, spotId) {
-      return (roomSpots[roomId] || []).find((spot) => spot.id === spotId) || null;
-    }
-
-    function setRoute(hash) {
-      const next = hash.startsWith("#") ? hash : `#${hash}`;
-      if (window.location.hash === next) {
-        handleRoute();
-      } else {
-        window.location.hash = next;
-      }
-    }
-
-    async function enterRoom(room) {
-      if (!state.user || !state.playerName) {
-        showNameModal(false);
-        return;
-      }
-      setRoute(`room/${room.id}`);
-      try {
-        await writeLog(`${state.playerName}が「${room.name}」へ向かいました。`, "explore", { locationId: room.id });
-      } catch (error) {
-        handleError(error);
-      }
-    }
-
-    async function enterSpot(room, spot) {
-      if (!state.user || !state.playerName) {
-        showNameModal(false);
-        return;
-      }
-      setRoute(`room/${room.id}/spot/${spot.id}`);
-      try {
-        await writeLog(`${state.playerName}が「${room.name}／${spot.name.replace(/へ進む|へ近づく|を調べる|を見る|を覗く|を開く|を回す|を辿る|を払いのける|を探る|をかき分ける/g, "")}」を調べました。`, "explore", { locationId: room.id, spotId: spot.id });
-      } catch (error) {
-        handleError(error);
-      }
-    }
-
-    function makeBackButton(label, target) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "page-back";
-      button.textContent = `← ${label}`;
-      button.addEventListener("click", () => setRoute(target));
-      return button;
-    }
-
-    function renderRoomPage(room) {
-      el.roomPage.replaceChildren();
-      const header = document.createElement("section");
-      header.className = "route-header";
-      const kicker = document.createElement("p");
-      kicker.className = "route-kicker";
-      kicker.textContent = `AREA ${room.icon}`;
-      const title = document.createElement("h2");
-      title.className = "route-title";
-      title.textContent = room.name;
-      const copy = document.createElement("p");
-      copy.className = "route-copy";
-      copy.textContent = room.description;
-      header.append(kicker, title, copy);
-
-      const instruction = document.createElement("h3");
-      instruction.className = "route-instruction";
-      instruction.textContent = "どこを調べますか？";
-      const list = document.createElement("div");
-      list.className = "spot-list";
-      (roomSpots[room.id] || []).forEach((spot) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "spot-link";
-        const copyWrap = document.createElement("span");
-        const name = document.createElement("strong");
-        name.textContent = spot.name;
-        const teaser = document.createElement("small");
-        teaser.textContent = spot.teaser;
-        const arrow = document.createElement("span");
-        arrow.className = "spot-arrow";
-        arrow.setAttribute("aria-hidden", "true");
-        arrow.textContent = "›";
-        copyWrap.append(name, teaser);
-        button.append(copyWrap, arrow);
-        button.addEventListener("click", () => enterSpot(room, spot));
-        list.append(button);
-      });
-      el.roomPage.append(makeBackButton("探索場所へ戻る", "explore"), header, instruction, list);
-    }
-
-    function renderSpotPage(room, spot) {
-      el.spotPage.replaceChildren();
-      const header = document.createElement("section");
-      header.className = "route-header";
-      const kicker = document.createElement("p");
-      kicker.className = "route-kicker";
-      kicker.textContent = room.name;
-      const title = document.createElement("h2");
-      title.className = "route-title";
-      title.textContent = spot.name;
-      const copy = document.createElement("p");
-      copy.className = "route-copy";
-      copy.textContent = "さらに奥へ進み、周囲を確かめます。";
-      header.append(kicker, title, copy);
-
-      const result = document.createElement("section");
-      result.className = "result-panel";
-      const resultTitle = document.createElement("h3");
-      resultTitle.textContent = "調査結果";
-      const resultCopy = document.createElement("p");
-      resultCopy.textContent = spot.result;
-      result.append(resultTitle, resultCopy);
-
-      if (spot.itemId && room.item?.id === spot.itemId) {
-        const discovery = document.createElement("div");
-        discovery.className = "item-discovery";
-        const visual = document.createElement("div");
-        visual.className = "item-visual";
-        visual.setAttribute("role", "img");
-        visual.setAttribute("aria-label", room.item.name);
-        const visualSymbol = document.createElement("span");
-        visualSymbol.className = "item-visual-symbol";
-        visualSymbol.textContent = room.item.symbol;
-        visual.append(visualSymbol);
-        const label = document.createElement("p");
-        label.className = "find-label";
-        label.textContent = "見つけたもの";
-        discovery.append(visual, label, makeItemCard(room, room.item));
-        result.append(discovery);
-      } else {
-        const empty = document.createElement("div");
-        empty.className = "empty-panel";
-        empty.style.marginTop = "18px";
-        empty.textContent = "ここでは持ち出せそうな物は見つかりませんでした。";
-        result.append(empty);
-      }
-
-      if (room.id === "costume-room" && spot.id === "closet" && state.claims["rusted-key"]) {
-        const secretButton = document.createElement("button");
-        secretButton.type = "button";
-        secretButton.className = "primary-button secret-link";
-        secretButton.textContent = "錆びた鍵で奥の扉を開ける";
-        secretButton.addEventListener("click", () => {
-          const secretRoom = getRoom("hidden-room");
-          if (secretRoom) enterRoom(secretRoom);
-        });
-        result.append(secretButton);
-      }
-
-      el.spotPage.append(makeBackButton(`${room.name}へ戻る`, `room/${room.id}`), header, result);
-    }
-
-    function routeParts() {
-      return window.location.hash.replace(/^#/, "").split("/").filter(Boolean);
-    }
-
-    function activateMainView(target) {
-      document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.dataset.view === target));
-      document.querySelectorAll(".tab-button").forEach((button) => button.classList.toggle("active", button.dataset.target === target));
-    }
-
-    function handleRoute() {
-      const parts = routeParts();
-      const root = parts[0] || "explore";
-      const target = root === "inventory" || root === "log" ? root : "explore";
-      activateMainView(target);
-
-      const room = root === "room" ? getRoom(parts[1]) : null;
-      const spot = room && parts[2] === "spot" ? getSpot(room.id, parts[3]) : null;
-      const isSubpage = Boolean(room);
-      document.body.classList.toggle("subpage", isSubpage);
-      el.exploreHome.classList.toggle("hidden", target !== "explore" || isSubpage);
-      el.roomPage.classList.toggle("show", Boolean(room && !spot));
-      el.spotPage.classList.toggle("show", Boolean(room && spot));
-
-      if (room && spot) {
-        renderSpotPage(room, spot);
-      } else if (room) {
-        renderRoomPage(room);
-      } else if (root === "room") {
-        window.history.replaceState(null, "", "#explore");
-        document.body.classList.remove("subpage");
-        el.exploreHome.classList.remove("hidden");
-        el.roomPage.classList.remove("show");
-        el.spotPage.classList.remove("show");
-      }
-
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function makeItemCard(room, item) {
-      const claim = state.claims[item.id];
-      const card = document.createElement("div");
-      card.className = "item-card";
-      const symbol = document.createElement("div");
-      symbol.className = "item-symbol";
-      symbol.textContent = item.symbol;
-      const copy = document.createElement("div");
-      const name = document.createElement("strong");
-      name.textContent = item.name;
-      const status = document.createElement("span");
-      status.className = "item-state";
-      status.textContent = claim ? `${claim.playerName || "誰か"}が入手済みです` : "まだ誰も入手していません";
-      copy.append(name, status);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "claim-button";
-      button.disabled = Boolean(claim) || !state.user || !state.playerName;
-      button.textContent = claim ? "入手済み" : "入手する";
-      button.addEventListener("click", () => claimItem(room, item, button));
-      card.append(symbol, copy, button);
-      return card;
-    }
-
-    async function writeLog(message, type, extra = {}) {
+    async function writeLog(message, type, extra) {
       if (!state.user || !state.playerName) return;
       const newLogRef = push(ref(db, "logs"));
-      await set(newLogRef, {
+      await set(newLogRef, Object.assign({
         uid: state.user.uid,
         playerName: state.playerName,
-        message,
-        type,
-        timestamp: Date.now(),
-        ...extra
-      });
+        message: message,
+        type: type,
+        timestamp: serverNow()
+      }, extra || {}));
+    }
+
+    function makeAttemptId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+      return String(serverNow()) + "-" + Math.random().toString(36).slice(2);
+    }
+
+    async function reserveDailySlot(item) {
+      const slotRef = ref(db, "dailySlots/" + state.user.uid);
+      const periodStart = state.periodStart;
+      const attemptId = makeAttemptId();
+      const reservation = {
+        uid: state.user.uid,
+        playerName: state.playerName,
+        itemId: item.id,
+        periodStart: periodStart,
+        status: "reserved",
+        attemptId: attemptId,
+        updatedAt: serverNow()
+      };
+
+      const result = await runTransaction(slotRef, function (current) {
+        if (!current || Number(current.periodStart || 0) < Number(periodStart)) {
+          return reservation;
+        }
+        if (Number(current.periodStart || 0) > Number(periodStart)) return;
+        if (current.status === "claimed") return;
+        return reservation;
+      }, { applyLocally: false });
+
+      return {
+        committed: result.committed,
+        reservation: reservation,
+        slotRef: slotRef
+      };
     }
 
     async function claimItem(room, item, button) {
-      if (!state.user || !state.playerName) return;
+      if (!ensureCanExplore() || state.claimInProgress) return;
+      state.claimInProgress = true;
       button.disabled = true;
       button.textContent = "確認中…";
+
       try {
-        const claimRef = ref(db, `claims/${item.id}`);
+        const slot = await reserveDailySlot(item);
+        if (!slot.committed) {
+          showToast("本日の探索は終了しました。");
+          setRoute("explore");
+          return;
+        }
+
+        const now = serverNow();
+        const claimRef = ref(db, "claims/" + item.id);
         const claim = {
           uid: state.user.uid,
           playerName: state.playerName,
           itemName: item.name,
           locationId: room.id,
-          claimedAt: Date.now()
+          claimedAt: now,
+          periodStart: state.periodStart,
+          gameDay: getPeriodKey(state.periodStart)
         };
-        const result = await runTransaction(claimRef, (current) => current === null ? claim : undefined, { applyLocally: false });
+        const result = await runTransaction(claimRef, function (current) {
+          return current === null ? claim : undefined;
+        }, { applyLocally: false });
+
         if (!result.committed) {
-          const winner = result.snapshot.val()?.playerName || "ほかの参加者";
-          showToast(`${winner}が先に入手しました。`);
+          showToast("誰かが先に取得しました。別の道を探索できます。");
+          handleRoute(false);
           return;
         }
 
+        await set(slot.slotRef, Object.assign({}, slot.reservation, {
+          status: "claimed",
+          updatedAt: serverNow()
+        }));
+
         const logKey = push(ref(db, "logs")).key;
-        const now = Date.now();
         const updates = {};
-        updates[`inventories/${state.user.uid}/${item.id}`] = {
+        updates["inventories/" + state.user.uid + "/" + item.id] = {
           name: item.name,
           symbol: item.symbol,
+          image: item.image || "",
           locationId: room.id,
           locationName: room.name,
-          acquiredAt: now
+          acquiredAt: now,
+          periodStart: state.periodStart
         };
-        updates[`logs/${logKey}`] = {
+        updates["logs/" + logKey] = {
           uid: state.user.uid,
           playerName: state.playerName,
-          message: `${state.playerName}が「${item.name}」を入手しました。`,
+          message: state.playerName + "が「" + item.name + "」を入手しました。",
           type: "item",
           itemId: item.id,
           locationId: room.id,
           timestamp: now
         };
         await update(ref(db), updates);
-        showToast(`「${item.name}」を入手しました。`);
+        showToast("「" + item.name + "」を入手しました。");
+        setRoute("explore");
       } catch (error) {
         handleError(error);
       } finally {
-        renderRooms();
-        handleRoute();
+        state.claimInProgress = false;
+        button.disabled = false;
+        button.textContent = "このアイテムを入手する";
+        renderExploreHome();
+        handleRoute(false);
       }
     }
 
-    function itemSymbol(itemId, savedSymbol) {
-      if (savedSymbol) return savedSymbol;
-      for (const room of rooms) if (room.item?.id === itemId) return room.item.symbol;
-      return "◇";
-    }
+    async function reconcileDailySlot() {
+      if (state.reconciling || state.claimInProgress || !state.user || !state.dailySlot) return;
+      if (Number(state.dailySlot.periodStart || 0) !== Number(state.periodStart)) return;
+      if (state.dailySlot.status !== "reserved") return;
+      const claim = state.claims[state.dailySlot.itemId];
+      if (!claim || claim.uid !== state.user.uid || Number(claim.periodStart || 0) !== Number(state.periodStart)) return;
 
-    function renderInventory() {
-      const entries = Object.entries(state.inventory).sort(([, a], [, b]) => Number(b.acquiredAt || 0) - Number(a.acquiredAt || 0));
-      el.inventoryList.replaceChildren();
-      if (!entries.length) {
-        const empty = document.createElement("div");
-        empty.className = "empty-panel";
-        empty.textContent = "所持品はまだありません。部屋を探索してみましょう。";
-        el.inventoryList.append(empty);
-        return;
+      state.reconciling = true;
+      try {
+        await set(ref(db, "dailySlots/" + state.user.uid), Object.assign({}, state.dailySlot, {
+          status: "claimed",
+          updatedAt: serverNow()
+        }));
+      } catch (error) {
+        handleError(error);
+      } finally {
+        state.reconciling = false;
       }
-      entries.forEach(([itemId, item]) => {
-        const card = document.createElement("div");
-        card.className = "inventory-card";
-        const symbol = document.createElement("div");
-        symbol.className = "item-symbol";
-        symbol.textContent = itemSymbol(itemId, item.symbol);
-        const copy = document.createElement("div");
-        const name = document.createElement("strong");
-        name.textContent = item.name || "名称不明の品";
-        const meta = document.createElement("small");
-        meta.textContent = `${item.locationName || "場所不明"}で入手・${formatTime(item.acquiredAt)}`;
-        copy.append(name, meta);
-        card.append(symbol, copy);
-        el.inventoryList.append(card);
-      });
     }
 
     function startRealtimeListeners() {
       if (state.listenersStarted || !state.user) return;
       state.listenersStarted = true;
 
-      onValue(ref(db, ".info/connected"), (snapshot) => {
+      onValue(ref(db, ".info/serverTimeOffset"), function (snapshot) {
+        state.serverOffset = Number(snapshot.val() || 0);
+        checkPeriodChange();
+      });
+
+      onValue(ref(db, ".info/connected"), function (snapshot) {
         const connected = snapshot.val() === true;
         setConnection(connected ? "online" : "", connected ? "リアルタイム" : "再接続中");
       });
 
-      onValue(ref(db, "claims"), (snapshot) => {
+      onValue(ref(db, "claims"), function (snapshot) {
         state.claims = snapshot.val() || {};
-        renderRooms();
-        handleRoute();
+        reconcileDailySlot();
+        renderExploreHome();
+        handleRoute(false);
       }, handleError);
 
-      onValue(ref(db, `inventories/${state.user.uid}`), (snapshot) => {
+      onValue(ref(db, "dailySlots/" + state.user.uid), function (snapshot) {
+        state.dailySlot = snapshot.val() || null;
+        reconcileDailySlot();
+        renderExploreHome();
+        handleRoute(false);
+      }, handleError);
+
+      onValue(ref(db, "inventories/" + state.user.uid), function (snapshot) {
         state.inventory = snapshot.val() || {};
         renderInventory();
       }, handleError);
 
-      const logsQuery = query(ref(db, "logs"), limitToLast(60));
-      onValue(logsQuery, (snapshot) => {
+      const logsQuery = query(ref(db, "logs"), limitToLast(80));
+      onValue(logsQuery, function (snapshot) {
         const raw = snapshot.val() || {};
-        state.logs = Object.entries(raw).map(([id, value]) => ({ id, ...value }));
+        state.logs = Object.entries(raw).map(function (entry) {
+          return Object.assign({ id: entry[0] }, entry[1]);
+        });
         renderLogs();
       }, handleError);
     }
@@ -1204,17 +2042,18 @@
       state.playerName = clean;
       localStorage.setItem("sp-explore-player-name", clean);
       el.playerNameLabel.textContent = clean;
-      await set(ref(db, `players/${state.user.uid}`), {
+      await set(ref(db, "players/" + state.user.uid), {
         name: clean,
-        updatedAt: Date.now()
+        updatedAt: serverNow()
       });
-      if (wasEmpty) await writeLog(`${clean}が探索に参加しました。`, "join");
+      if (wasEmpty) await writeLog(clean + "が探索に参加しました。", "join");
       hideNameModal();
-      handleRoute();
-      showToast(`${clean}として参加しました。`);
+      renderExploreHome();
+      handleRoute(false);
+      showToast(clean + "として参加しました。");
     }
 
-    el.nameForm.addEventListener("submit", async (event) => {
+    el.nameForm.addEventListener("submit", async function (event) {
       event.preventDefault();
       el.nameError.textContent = "";
       const submit = el.nameForm.querySelector("button[type='submit']");
@@ -1229,25 +2068,31 @@
       }
     });
 
-    el.editNameButton.addEventListener("click", () => showNameModal(true));
+    el.editNameButton.addEventListener("click", function () {
+      showNameModal(true);
+    });
     el.cancelNameButton.addEventListener("click", hideNameModal);
 
-    document.querySelectorAll(".tab-button").forEach((button) => {
-      button.addEventListener("click", () => {
+    document.querySelectorAll(".tab-button").forEach(function (button) {
+      button.addEventListener("click", function () {
         setRoute(button.dataset.target);
       });
     });
 
-    window.addEventListener("hashchange", handleRoute);
+    window.addEventListener("hashchange", function () {
+      handleRoute(true);
+    });
     if (!window.location.hash) window.history.replaceState(null, "", "#explore");
 
-    renderRooms();
+    state.periodStart = getPeriodStart(serverNow());
+    startPeriodClock();
+    renderExploreHome();
     renderInventory();
     renderLogs();
-    handleRoute();
+    handleRoute(false);
     el.playerNameLabel.textContent = state.playerName || "名前を設定してください";
 
-    onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, async function (user) {
       if (!user) {
         try {
           await signInAnonymously(auth);
@@ -1262,7 +2107,10 @@
       startRealtimeListeners();
       if (state.playerName) {
         try {
-          await set(ref(db, `players/${user.uid}`), { name: state.playerName, updatedAt: Date.now() });
+          await set(ref(db, "players/" + user.uid), {
+            name: state.playerName,
+            updatedAt: serverNow()
+          });
         } catch (error) {
           handleError(error);
         }
@@ -1270,7 +2118,8 @@
         showNameModal(false);
       }
       el.loadingCover.classList.add("hide");
-      handleRoute();
+      renderExploreHome();
+      handleRoute(false);
     });
   </script>
 </body>

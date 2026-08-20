@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#151010">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>SUMMER PARADISE｜探索</title>
+  <title>EL CAPOTE｜探索</title>
   <style>
     :root {
       color-scheme: dark;
@@ -215,18 +215,94 @@
     .room-button small { display: block; overflow: hidden; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
     .secret-tag { display: inline-block; margin-top: 8px; padding: 3px 6px; border-radius: 999px; color: #f8deb0; background: rgba(228, 181, 90, .12); font-size: 9px; }
 
-    .room-detail {
-      display: none;
-      margin-top: 12px;
-      padding: 18px;
+    #exploreHome.hidden { display: none; }
+    .route-page { display: none; }
+    .route-page.show { display: block; animation: rise .22s ease-out; }
+    .route-header {
+      margin: 4px 0 18px;
+      padding: 20px 18px;
       border: 1px solid rgba(228, 181, 90, .25);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at 92% 0%, rgba(124, 23, 29, .38), transparent 17rem),
+        var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .page-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      margin: 0 0 20px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .035);
+      font-size: 12px;
+    }
+    .route-kicker { margin: 0 0 8px; color: var(--gold); font: 700 11px/1.4 Georgia, serif; letter-spacing: .18em; }
+    .route-title { margin: 0; font: 600 clamp(29px, 8vw, 43px)/1.08 Georgia, serif; }
+    .route-copy { margin: 13px 0 0; color: var(--muted); font-size: 13px; line-height: 1.85; }
+    .route-instruction { margin: 20px 2px 11px; font-size: 15px; }
+    .spot-list { display: grid; gap: 10px; }
+    .spot-link {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      width: 100%;
+      min-height: 82px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: var(--ink);
+      background: linear-gradient(145deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .018));
+      text-align: left;
+    }
+    .spot-link:active { transform: scale(.985); }
+    .spot-link strong { display: block; font-size: 14px; }
+    .spot-link small { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+    .spot-arrow { color: var(--gold); font-size: 22px; }
+    .result-panel {
+      padding: 20px 18px;
+      border: 1px solid var(--line);
       border-radius: 20px;
       background: var(--panel);
       box-shadow: var(--shadow);
     }
-    .room-detail.show { display: block; }
-    .room-detail h3 { margin: 0 0 9px; font: 600 24px/1.2 Georgia, serif; }
-    .room-detail p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .result-panel h3 { margin: 0 0 12px; font: 600 25px/1.25 Georgia, serif; }
+    .result-panel > p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.9; }
+    .item-discovery { margin-top: 22px; }
+    .item-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 230px;
+      overflow: hidden;
+      border: 1px solid rgba(228, 181, 90, .34);
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at center, rgba(228, 181, 90, .14), transparent 42%),
+        linear-gradient(155deg, #191313, #0b0909);
+    }
+    .item-visual::before {
+      content: "";
+      position: absolute;
+      right: 20%;
+      bottom: 25px;
+      left: 20%;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, .56);
+      filter: blur(9px);
+    }
+    .item-visual-symbol { position: relative; color: var(--gold); font: 400 92px/1 Georgia, serif; text-shadow: 0 12px 35px rgba(228, 181, 90, .25); }
+    .item-discovery .find-label { margin-top: 15px !important; }
+    .secret-link { margin-top: 14px; }
+    body.subpage .hero,
+    body.subpage .identity-row,
+    body.subpage .live-strip { display: none; }
     .primary-button {
       width: 100%;
       min-height: 48px;
@@ -367,16 +443,16 @@
   <div class="loading-cover" id="loadingCover" aria-live="polite">
     <div class="loading-inner">
       <div class="loading-emblem" aria-hidden="true"></div>
-      <strong>SUMMER PARADISE</strong>
-      <span>探索記録に接続しています</span>
+      <strong>EL CAPOTE</strong>
+      <span>探索に向かっています</span>
     </div>
   </div>
 
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">SP</div>
-        <div><strong>SUMMER PARADISE</strong><small>PRIVATE EXPLORATION</small></div>
+        <div class="brand-mark" aria-hidden="true">EC</div>
+        <div><strong>EL CAPOTE</strong><small>PRIVATE EXPLORATION</small></div>
       </div>
       <div class="status-pill" id="connectionStatus" role="status">
         <span class="status-dot" aria-hidden="true"></span>
@@ -387,7 +463,7 @@
     <main>
       <section class="hero">
         <p class="eyebrow">MATADOR'S HOUSE / TEST EDITION</p>
-        <h1>静かな宿を<br>探索する</h1>
+        <h1>EL CAPOTEを<br>探索する</h1>
         <p class="hero-copy">気になる場所を選び、辺りを調べてください。誰かの行動や発見は、参加者全員の画面へすぐに届きます。</p>
       </section>
 
@@ -407,10 +483,13 @@
       </section>
 
       <section class="view active" id="exploreView" data-view="explore">
-        <h2 class="view-title">探索場所</h2>
-        <p class="view-subtitle">部屋を選ぶと、その場所でできる行動が表示されます。</p>
-        <div class="room-grid" id="roomGrid"></div>
-        <article class="room-detail" id="roomDetail" aria-live="polite"></article>
+        <div id="exploreHome">
+          <h2 class="view-title">探索場所</h2>
+          <p class="view-subtitle">向かう場所を選んでください。選択すると、その部屋のページへ移動します。</p>
+          <div class="room-grid" id="roomGrid"></div>
+        </div>
+        <article class="route-page" id="roomPage" aria-live="polite"></article>
+        <article class="route-page" id="spotPage" aria-live="polite"></article>
       </section>
 
       <section class="view" id="inventoryView" data-view="inventory">
@@ -435,8 +514,8 @@
 
   <div class="modal-backdrop" id="nameModal" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
     <form class="modal" id="nameForm">
-      <h2 id="nameModalTitle">探索名を決める</h2>
-      <p>みんなの行動記録に表示する名前です。本名でなくてかまいません。</p>
+      <h2 id="nameModalTitle">探索へ向かう</h2>
+      <p>みんなの行動記録に表示する名前です。</p>
       <label for="nameInput" class="identity-label">表示名（12文字まで）</label>
       <input class="name-input" id="nameInput" name="name" type="text" maxlength="12" autocomplete="nickname" placeholder="例：V、探偵A、夏の客" required>
       <div class="modal-error" id="nameError" role="alert"></div>
@@ -559,6 +638,59 @@
       }
     ];
 
+    const roomSpots = {
+      "foyer": [
+        { id: "reception", name: "受付台へ近づく", teaser: "宿泊客の名を消した跡がある。", result: "受付台の表面には、何度も刃物で名前を削った跡があります。引き出しは空ですが、奥から微かにワインの匂いが漂っています。" },
+        { id: "guestbook", name: "古い宿帳を開く", teaser: "ページの大半が破り取られている。", result: "残されたページには日付だけが並び、客の名前は一つもありません。最後の欄には、赤いインクで円が描かれています。" },
+        { id: "stairs", name: "二階への階段を調べる", teaser: "上階は暗く、足音だけが遅れて返る。", result: "階段は途中から闇へ沈んでいます。手すりには新しい指の跡がありますが、今は先へ進めそうにありません。" }
+      ],
+      "costume-room": [
+        { id: "costumes", name: "衣装棚をかき分ける", teaser: "赤と金の衣装が隙間なく並ぶ。", result: "豪奢な衣装には古い血のような染みがあります。どれも丁寧に手入れされていますが、着る者の姿だけがありません。" },
+        { id: "vanity", name: "鏡台を覗き込む", teaser: "鏡の奥だけ、部屋が少し広く見える。", result: "曇った鏡を拭うと、自分の背後に赤い布が揺れました。振り返っても、そこには何もありません。" },
+        { id: "closet", name: "奥のクローゼットへ進む", teaser: "衣装の向こうに、人ひとり通れる空間がある。", result: "衣装をかき分けて奥へ入ると、壁際に赤い布が静かに置かれています。闘牛士が牡牛を誘うために使う、鮮やかなムレータです。", itemId: "crimson-muleta" }
+      ],
+      "dining-room": [
+        { id: "table", name: "長い食卓の奥へ進む", teaser: "十二人分の席が整えられている。", result: "上座の皿だけが裏返され、その隣に小さな銀の呼び鈴があります。磨かれた表面には、触れたばかりのような指紋が残っています。", itemId: "silver-dinner-bell" },
+        { id: "service-door", name: "配膳口を覗く", teaser: "厨房側から冷たい風が漏れている。", result: "配膳口の奥は真っ暗です。耳を澄ますと、誰もいないはずの厨房から食器を重ねる音が聞こえます。" },
+        { id: "fireplace", name: "暖炉の灰を調べる", teaser: "火は消えているのに灰が温かい。", result: "灰の中には焦げた紙片があります。文字は読めませんが、端に雄牛の角を思わせる印が残っています。" }
+      ],
+      "study": [
+        { id: "desk", name: "机の引き出しを開ける", teaser: "半分だけ開いた引き出しがある。", result: "引き出しの奥に破り取られた宿帳が押し込まれています。何人かの名前の横には、赤い丸が付けられています。", itemId: "torn-guest-ledger" },
+        { id: "bookshelf", name: "壁一面の書棚を調べる", teaser: "革張りの本が年代順に並ぶ。", result: "本の内容はすべて闘牛の記録です。敗者の名前だけが丁寧に黒く塗りつぶされています。" },
+        { id: "globe", name: "古い地球儀を回す", teaser: "スペインだけが金色に塗られている。", result: "地球儀を回すと、内部で小さな鍵のようなものが転がる音がします。しかし、継ぎ目は固く閉ざされています。" }
+      ],
+      "portrait-gallery": [
+        { id: "loose-frame", name: "浮いた額縁の裏を見る", teaser: "壁との間に紙が挟まっている。", result: "額縁を持ち上げると、裏から折り畳まれた紙片が落ちました。そこには、この施設の一部らしい見取り図が描かれています。", itemId: "portrait-fragment" },
+        { id: "black-portrait", name: "黒く塗られた肖像を見る", teaser: "顔の部分だけが塗り潰されている。", result: "角度を変えると、黒い絵具の下から笑う口元だけが見えます。視線を外した瞬間、額縁が小さく軋みました。" },
+        { id: "window", name: "回廊の窓を開ける", teaser: "外では風がないのにカーテンが揺れる。", result: "窓は固く閉ざされています。硝子の向こうには中庭ではなく、砂に覆われた闘牛場が広がっています。" }
+      ],
+      "bull-pen": [
+        { id: "straw", name: "湿った藁を払いのける", teaser: "藁の下で金属が光っている。", result: "藁の下から真鍮製の牛房札が現れました。番号ではなく、人の名前らしい文字が刻まれています。", itemId: "brass-stall-tag" },
+        { id: "chain", name: "床を這う鎖を辿る", teaser: "鎖の先は壁の穴へ続いている。", result: "鎖は途中で無理やり引き千切られています。周囲の床には、蹄ではなく人の爪で引っ掻いたような跡があります。" },
+        { id: "trough", name: "空の水桶を覗く", teaser: "底に赤黒い水滴が残っている。", result: "水桶の底に映った自分の顔へ、一瞬だけ角が生えたように見えました。もう一度覗いても、何も映りません。" }
+      ],
+      "wine-cellar": [
+        { id: "barrels", name: "積まれた樽の奥へ進む", teaser: "一本だけ向きの違う樽がある。", result: "樽をずらすと、石壁の隙間から錆びた鍵が落ちました。衣装室の古い錠前に合いそうな大きさです。", itemId: "rusted-key" },
+        { id: "bottle", name: "空のワイン瓶を調べる", teaser: "瓶の中に紙が入っている。", result: "紙には『牡牛を選べ』とだけ書かれています。裏側には十二個の小さな丸が並んでいます。" },
+        { id: "tasting-table", name: "試飲台の染みを見る", teaser: "二つのグラス跡だけが新しい。", result: "片方の染みは甘い香り、もう片方は薬品のような匂いがします。どちらがどちらかは判別できません。" }
+      ],
+      "clinic": [
+        { id: "medicine-shelf", name: "薬品棚の奥を探る", teaser: "ラベルのない小瓶が光っている。", result: "棚の最奥に、透明な液体の入った小瓶があります。栓は固く、匂いを確かめることはできません。", itemId: "unlabeled-vial" },
+        { id: "exam-table", name: "診察台を調べる", teaser: "革帯が不自然な位置に付いている。", result: "診察台の革帯は、人を固定するための配置です。表面には何度も強く引っ張られた跡があります。" },
+        { id: "sink", name: "古い流し台を覗く", teaser: "蛇口から一定間隔で雫が落ちる。", result: "排水口の周りに赤い粉が残っています。水で流そうとしても、粉は石のように固まって動きません。" }
+      ],
+      "arena": [
+        { id: "center", name: "闘牛場の中央へ進む", teaser: "砂の中央に円が描かれている。", result: "円の中心に立つと、無人の観客席から一斉に足を踏み鳴らす音が響きます。音は数秒で途切れました。" },
+        { id: "seats", name: "観客席を調べる", teaser: "一席だけ赤い布が掛けられている。", result: "赤い布の下には、誰かが座っていたような温もりが残っています。座席番号は削り取られています。" },
+        { id: "bull-gate", name: "牡牛門の前へ進む", teaser: "門の向こうから重い呼吸が聞こえる。", result: "門は太い閂で閉じられています。隙間から覗いても暗闇しか見えませんが、何かが砂を蹴る音がします。" }
+      ],
+      "hidden-room": [
+        { id: "chair", name: "古い椅子へ近づく", teaser: "座面に革具が置かれている。", result: "古い椅子の上に、用途の分からない革製の拘束具が置かれています。冗談めいた拾得物ですが、留め具には使用された跡があります。", itemId: "odd-leather-restraint" },
+        { id: "wall-chain", name: "壁の鎖を調べる", teaser: "鎖の高さが人の手首と一致する。", result: "鎖の先には革の輪が付いています。壁には日付と人数らしい数字が、無数に刻まれています。" },
+        { id: "drain", name: "床の排水口を覗く", teaser: "地下から風が吹き上がっている。", result: "排水口の下にはさらに空間が続いています。遠くで水音と、低く笑うような声が響きました。" }
+      ]
+    };
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -569,8 +701,6 @@
       claims: {},
       inventory: {},
       logs: [],
-      exploredRooms: new Set(),
-      selectedRoomId: null,
       listenersStarted: false
     };
 
@@ -588,8 +718,10 @@
       cancelNameButton: document.getElementById("cancelNameButton"),
       miniLog: document.getElementById("miniLog"),
       fullLog: document.getElementById("fullLog"),
+      exploreHome: document.getElementById("exploreHome"),
       roomGrid: document.getElementById("roomGrid"),
-      roomDetail: document.getElementById("roomDetail"),
+      roomPage: document.getElementById("roomPage"),
+      spotPage: document.getElementById("spotPage"),
       inventoryList: document.getElementById("inventoryList"),
       toast: document.getElementById("toast")
     };
@@ -697,15 +829,11 @@
 
     function renderRooms() {
       const available = availableRooms();
-      if (state.selectedRoomId && !available.some((room) => room.id === state.selectedRoomId)) {
-        state.selectedRoomId = null;
-      }
       el.roomGrid.replaceChildren();
       available.forEach((room) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "room-button" + (state.selectedRoomId === room.id ? " selected" : "");
-        button.setAttribute("aria-pressed", String(state.selectedRoomId === room.id));
+        button.className = "room-button";
 
         const icon = document.createElement("span");
         icon.className = "room-icon";
@@ -721,50 +849,202 @@
           tag.textContent = "鍵で解放されました";
           button.append(tag);
         }
-        button.addEventListener("click", () => selectRoom(room.id));
+        button.addEventListener("click", () => enterRoom(room));
         el.roomGrid.append(button);
       });
-      renderRoomDetail();
     }
 
-    function selectRoom(roomId) {
-      state.selectedRoomId = roomId;
-      renderRooms();
-      window.setTimeout(() => el.roomDetail.scrollIntoView({ behavior: "smooth", block: "nearest" }), 40);
+    function getRoom(roomId) {
+      return availableRooms().find((room) => room.id === roomId) || null;
     }
 
-    function renderRoomDetail() {
-      const room = rooms.find((entry) => entry.id === state.selectedRoomId);
-      el.roomDetail.replaceChildren();
-      el.roomDetail.classList.toggle("show", Boolean(room));
-      if (!room) return;
+    function getSpot(roomId, spotId) {
+      return (roomSpots[roomId] || []).find((spot) => spot.id === spotId) || null;
+    }
 
-      const title = document.createElement("h3");
+    function setRoute(hash) {
+      const next = hash.startsWith("#") ? hash : `#${hash}`;
+      if (window.location.hash === next) {
+        handleRoute();
+      } else {
+        window.location.hash = next;
+      }
+    }
+
+    async function enterRoom(room) {
+      if (!state.user || !state.playerName) {
+        showNameModal(false);
+        return;
+      }
+      setRoute(`room/${room.id}`);
+      try {
+        await writeLog(`${state.playerName}が「${room.name}」へ向かいました。`, "explore", { locationId: room.id });
+      } catch (error) {
+        handleError(error);
+      }
+    }
+
+    async function enterSpot(room, spot) {
+      if (!state.user || !state.playerName) {
+        showNameModal(false);
+        return;
+      }
+      setRoute(`room/${room.id}/spot/${spot.id}`);
+      try {
+        await writeLog(`${state.playerName}が「${room.name}／${spot.name.replace(/へ進む|へ近づく|を調べる|を見る|を覗く|を開く|を回す|を辿る|を払いのける|を探る|をかき分ける/g, "")}」を調べました。`, "explore", { locationId: room.id, spotId: spot.id });
+      } catch (error) {
+        handleError(error);
+      }
+    }
+
+    function makeBackButton(label, target) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "page-back";
+      button.textContent = `← ${label}`;
+      button.addEventListener("click", () => setRoute(target));
+      return button;
+    }
+
+    function renderRoomPage(room) {
+      el.roomPage.replaceChildren();
+      const header = document.createElement("section");
+      header.className = "route-header";
+      const kicker = document.createElement("p");
+      kicker.className = "route-kicker";
+      kicker.textContent = `AREA ${room.icon}`;
+      const title = document.createElement("h2");
+      title.className = "route-title";
       title.textContent = room.name;
-      const description = document.createElement("p");
-      description.textContent = room.description;
-      const exploreButton = document.createElement("button");
-      exploreButton.type = "button";
-      exploreButton.className = "primary-button";
-      exploreButton.textContent = state.exploredRooms.has(room.id) ? "もう一度、辺りを調べる" : "辺りを調べる";
-      exploreButton.disabled = !state.user || !state.playerName;
-      exploreButton.addEventListener("click", () => exploreRoom(room));
-      el.roomDetail.append(title, description, exploreButton);
+      const copy = document.createElement("p");
+      copy.className = "route-copy";
+      copy.textContent = room.description;
+      header.append(kicker, title, copy);
 
-      const findArea = document.createElement("div");
-      findArea.className = "find-area" + (state.exploredRooms.has(room.id) ? " show" : "");
-      if (room.item) {
+      const instruction = document.createElement("h3");
+      instruction.className = "route-instruction";
+      instruction.textContent = "どこを調べますか？";
+      const list = document.createElement("div");
+      list.className = "spot-list";
+      (roomSpots[room.id] || []).forEach((spot) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "spot-link";
+        const copyWrap = document.createElement("span");
+        const name = document.createElement("strong");
+        name.textContent = spot.name;
+        const teaser = document.createElement("small");
+        teaser.textContent = spot.teaser;
+        const arrow = document.createElement("span");
+        arrow.className = "spot-arrow";
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "›";
+        copyWrap.append(name, teaser);
+        button.append(copyWrap, arrow);
+        button.addEventListener("click", () => enterSpot(room, spot));
+        list.append(button);
+      });
+      el.roomPage.append(makeBackButton("探索場所へ戻る", "explore"), header, instruction, list);
+    }
+
+    function renderSpotPage(room, spot) {
+      el.spotPage.replaceChildren();
+      const header = document.createElement("section");
+      header.className = "route-header";
+      const kicker = document.createElement("p");
+      kicker.className = "route-kicker";
+      kicker.textContent = room.name;
+      const title = document.createElement("h2");
+      title.className = "route-title";
+      title.textContent = spot.name;
+      const copy = document.createElement("p");
+      copy.className = "route-copy";
+      copy.textContent = "さらに奥へ進み、周囲を確かめます。";
+      header.append(kicker, title, copy);
+
+      const result = document.createElement("section");
+      result.className = "result-panel";
+      const resultTitle = document.createElement("h3");
+      resultTitle.textContent = "調査結果";
+      const resultCopy = document.createElement("p");
+      resultCopy.textContent = spot.result;
+      result.append(resultTitle, resultCopy);
+
+      if (spot.itemId && room.item?.id === spot.itemId) {
+        const discovery = document.createElement("div");
+        discovery.className = "item-discovery";
+        const visual = document.createElement("div");
+        visual.className = "item-visual";
+        visual.setAttribute("role", "img");
+        visual.setAttribute("aria-label", room.item.name);
+        const visualSymbol = document.createElement("span");
+        visualSymbol.className = "item-visual-symbol";
+        visualSymbol.textContent = room.item.symbol;
+        visual.append(visualSymbol);
         const label = document.createElement("p");
         label.className = "find-label";
         label.textContent = "見つけたもの";
-        findArea.append(label, makeItemCard(room, room.item));
+        discovery.append(visual, label, makeItemCard(room, room.item));
+        result.append(discovery);
       } else {
         const empty = document.createElement("div");
         empty.className = "empty-panel";
-        empty.textContent = "目ぼしい物は見つかりませんでした。";
-        findArea.append(empty);
+        empty.style.marginTop = "18px";
+        empty.textContent = "ここでは持ち出せそうな物は見つかりませんでした。";
+        result.append(empty);
       }
-      el.roomDetail.append(findArea);
+
+      if (room.id === "costume-room" && spot.id === "closet" && state.claims["rusted-key"]) {
+        const secretButton = document.createElement("button");
+        secretButton.type = "button";
+        secretButton.className = "primary-button secret-link";
+        secretButton.textContent = "錆びた鍵で奥の扉を開ける";
+        secretButton.addEventListener("click", () => {
+          const secretRoom = getRoom("hidden-room");
+          if (secretRoom) enterRoom(secretRoom);
+        });
+        result.append(secretButton);
+      }
+
+      el.spotPage.append(makeBackButton(`${room.name}へ戻る`, `room/${room.id}`), header, result);
+    }
+
+    function routeParts() {
+      return window.location.hash.replace(/^#/, "").split("/").filter(Boolean);
+    }
+
+    function activateMainView(target) {
+      document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.dataset.view === target));
+      document.querySelectorAll(".tab-button").forEach((button) => button.classList.toggle("active", button.dataset.target === target));
+    }
+
+    function handleRoute() {
+      const parts = routeParts();
+      const root = parts[0] || "explore";
+      const target = root === "inventory" || root === "log" ? root : "explore";
+      activateMainView(target);
+
+      const room = root === "room" ? getRoom(parts[1]) : null;
+      const spot = room && parts[2] === "spot" ? getSpot(room.id, parts[3]) : null;
+      const isSubpage = Boolean(room);
+      document.body.classList.toggle("subpage", isSubpage);
+      el.exploreHome.classList.toggle("hidden", target !== "explore" || isSubpage);
+      el.roomPage.classList.toggle("show", Boolean(room && !spot));
+      el.spotPage.classList.toggle("show", Boolean(room && spot));
+
+      if (room && spot) {
+        renderSpotPage(room, spot);
+      } else if (room) {
+        renderRoomPage(room);
+      } else if (root === "room") {
+        window.history.replaceState(null, "", "#explore");
+        document.body.classList.remove("subpage");
+        el.exploreHome.classList.remove("hidden");
+        el.roomPage.classList.remove("show");
+        el.spotPage.classList.remove("show");
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function makeItemCard(room, item) {
@@ -802,20 +1082,6 @@
         timestamp: Date.now(),
         ...extra
       });
-    }
-
-    async function exploreRoom(room) {
-      if (!state.user || !state.playerName) {
-        showNameModal(false);
-        return;
-      }
-      state.exploredRooms.add(room.id);
-      renderRoomDetail();
-      try {
-        await writeLog(`${state.playerName}が「${room.name}」を探索しました。`, "explore", { locationId: room.id });
-      } catch (error) {
-        handleError(error);
-      }
     }
 
     async function claimItem(room, item, button) {
@@ -863,6 +1129,7 @@
         handleError(error);
       } finally {
         renderRooms();
+        handleRoute();
       }
     }
 
@@ -911,6 +1178,7 @@
       onValue(ref(db, "claims"), (snapshot) => {
         state.claims = snapshot.val() || {};
         renderRooms();
+        handleRoute();
       }, handleError);
 
       onValue(ref(db, `inventories/${state.user.uid}`), (snapshot) => {
@@ -942,7 +1210,7 @@
       });
       if (wasEmpty) await writeLog(`${clean}が探索に参加しました。`, "join");
       hideNameModal();
-      renderRoomDetail();
+      handleRoute();
       showToast(`${clean}として参加しました。`);
     }
 
@@ -966,16 +1234,17 @@
 
     document.querySelectorAll(".tab-button").forEach((button) => {
       button.addEventListener("click", () => {
-        const target = button.dataset.target;
-        document.querySelectorAll(".tab-button").forEach((entry) => entry.classList.toggle("active", entry === button));
-        document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.dataset.view === target));
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        setRoute(button.dataset.target);
       });
     });
+
+    window.addEventListener("hashchange", handleRoute);
+    if (!window.location.hash) window.history.replaceState(null, "", "#explore");
 
     renderRooms();
     renderInventory();
     renderLogs();
+    handleRoute();
     el.playerNameLabel.textContent = state.playerName || "名前を設定してください";
 
     onAuthStateChanged(auth, async (user) => {
@@ -1001,7 +1270,7 @@
         showNameModal(false);
       }
       el.loadingCover.classList.add("hide");
-      renderRoomDetail();
+      handleRoute();
     });
   </script>
 </body>

@@ -976,7 +976,7 @@
         name: "5. 名もなき牡牛の手記",
         symbol: "Ⅴ",
         image: "nameless-bull-note-5.jpeg",
-        availableDay: 5,
+        availableDay: 6,
         text: "誰一人として客を残したくないのなら、最後に残すべきは、招かれた者ではなく――招いた者だ。"
       }
     };
@@ -995,7 +995,6 @@
         itemInstance(coreItems.stealMuleta, 1, 2),
         itemInstance(explorationItems.antidote, 1, 1),
         itemInstance(explorationItems.antidote, 1, 2),
-        itemInstance(explorationItems.leatherRestraint, 1, 1),
         itemInstance(coreItems.costMuleta, 1, 1),
         itemInstance(explorationItems.blueBox, 1, 1),
         itemInstance(explorationItems.applauseCoin, 1, 1)
@@ -1019,13 +1018,13 @@
         itemInstance(explorationItems.muletaBack, 3, 1)
       ],
       4: [
+        itemInstance(explorationItems.muletaBack, 4, 1),
         itemInstance(coreItems.stealMuleta, 4, 1),
-        itemInstance(coreItems.stealMuleta, 4, 2),
         itemInstance(explorationItems.saw, 4, 1),
         itemInstance(explorationItems.goldBox, 4, 1),
         itemInstance(explorationItems.antidote, 4, 1),
         itemInstance(explorationItems.alcoholTicket, 4, 1),
-        itemInstance(explorationItems.cowbellCollar, 4, 1)
+        itemInstance(coreItems.stealMuleta, 4, 2)
       ],
       5: [
         itemInstance(coreItems.stealMuleta, 5, 1),
@@ -1041,7 +1040,6 @@
         itemInstance(coreItems.stealMuleta, 6, 2),
         itemInstance(coreItems.costMuleta, 6, 1),
         itemInstance(explorationItems.antidote, 6, 1),
-        itemInstance(explorationItems.muletaBack, 6, 1),
         itemInstance(explorationItems.applauseCoin, 6, 1),
         itemInstance(explorationItems.afternoonTeaTicket, 6, 1)
       ]
@@ -1052,8 +1050,8 @@
       2: [namelessBullNotes[1]],
       3: [namelessBullNotes[2]],
       4: [namelessBullNotes[3]],
-      5: [namelessBullNotes[4], namelessBullNotes[5]],
-      6: []
+      5: [namelessBullNotes[4]],
+      6: [namelessBullNotes[5]]
     };
 
     // 各日の通常アイテムを館内へ散らして配置する。
@@ -1061,14 +1059,13 @@
     // 手記が出る部屋とは重ならないようにして、通常アイテムが隠れないようにする。
     const dailyRoomAssignments = {
       1: {
-        "portrait-gallery": 0, // 強奪のムレータ①
-        "arena": 1,            // 強奪のムレータ②
-        "clinic": 2,           // 解毒薬①
-        "wine-cellar": 3,      // 解毒薬②
-        "costume-room": 4,     // 革ベルトの拘束具
-        "bull-pen": 5,         // 代償のムレータ
-        "study": 6,            // 青い木箱
-        "dining-room": 7       // 喝采の金貨
+        "portrait-gallery": 0, // 強奪のムレータ
+        "arena": 1,            // 強奪のムレータ
+        "clinic": 2,           // 解毒薬
+        "wine-cellar": 3,      // 解毒薬
+        "bull-pen": 4,         // 代償のムレータ
+        "study": 5,            // 青い木箱
+        "dining-room": 6       // 喝采の金貨
       },
       2: {
         "costume-room": 0,     // 強奪のムレータ
@@ -1078,7 +1075,8 @@
         "kitchen": 4,          // ノコギリ
         "portrait-gallery": 5, // ムレータの裏側
         "dining-room": 6       // アルコールチケット
-        // 闘牛場：名もなき牡牛の手記①
+        // 闘牛場：1. 名もなき牡牛の手記
+        // 拷問部屋：発見イベントのみ（アイテムなし）
       },
       3: {
         "arena": 0,            // 強奪のムレータ
@@ -1088,37 +1086,36 @@
         "wine-cellar": 4,      // アルコールチケット
         "dining-room": 5,      // カウベルのついた首輪
         "costume-room": 6      // ムレータの裏側
-        // 書斎：名もなき牡牛の手記②
+        // 書斎：2. 名もなき牡牛の手記
       },
       4: {
-        "arena": 0,            // 強奪のムレータ①
-        "bull-pen": 1,         // 強奪のムレータ②
+        "arena": 0,            // ムレータの裏側
+        "bull-pen": 1,         // 強奪のムレータ
         "kitchen": 2,          // ノコギリ
         "hernando-room": 3,    // 金色の木箱
         "clinic": 4,           // 解毒薬
         "wine-cellar": 5,      // アルコールチケット
-        "dining-room": 6       // カウベルのついた首輪
-        // 衣裳室：名もなき牡牛の手記③
+        "dining-room": 6       // 強奪のムレータ
+        // 衣裳室：3. 名もなき牡牛の手記
       },
       5: {
         "arena": 0,            // 強奪のムレータ
         "bull-pen": 1,         // 代償のムレータ
         "kitchen": 2,          // ノコギリ
         "clinic": 3,           // 解毒薬
-        "study": 4,            // 黒色の木箱
+        "study": 4,            // 黒い木箱
         "portrait-gallery": 5, // ムレータの裏側
         "costume-room": 6      // 革ベルトの拘束具
-        // 拷問部屋：名もなき牡牛の手記④
-        // エルナンドの自室：名もなき牡牛の手記⑤
+        // 拷問部屋：4. 名もなき牡牛の手記
       },
       6: {
-        "arena": 0,            // 強奪のムレータ①
-        "portrait-gallery": 1, // 強奪のムレータ②
+        "arena": 0,            // 強奪のムレータ
+        "portrait-gallery": 1, // 強奪のムレータ
         "bull-pen": 2,         // 代償のムレータ
         "clinic": 3,           // 解毒薬
-        "costume-room": 4,     // ムレータの裏側
-        "study": 5,            // 喝采の金貨
-        "dining-room": 6       // アフタヌーンティーチケット
+        "study": 4,            // 喝采の金貨
+        "dining-room": 5       // アフタヌーンティーチケット
+        // エルナンドの自室：5. 名もなき牡牛の手記
       }
     };
 
@@ -1301,7 +1298,7 @@
           symbol: "†",
           image: "broken-lance.jpg"
         },
-        dayItems: { 2: namelessBullNotes[1] }
+        dayItems: { 2: namelessBullNotes[1] },
       },
       "dining-room": {
         id: "dining-room",
@@ -1390,7 +1387,7 @@
           "椅子の上に、革製の奇妙な品が置かれていた。",
           "背後で隠し扉が閉じ、衣裳の擦れる音だけが残った。"
         ],
-        item: explorationItems.leatherRestraint,
+        item: explorationItems.leatherRestraint,,
         dayItems: { 5: namelessBullNotes[4] }
       },
       "hernando-room": {
@@ -1417,7 +1414,7 @@
           symbol: "□",
           image: "locked-wooden-box.jpg"
         },
-        dayItems: { 5: namelessBullNotes[5] }
+        dayItems: { 6: namelessBullNotes[5] },
       }
     };
 

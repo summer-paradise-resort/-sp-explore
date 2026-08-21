@@ -763,7 +763,13 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+    import {
+      browserLocalPersistence,
+      getAuth,
+      onAuthStateChanged,
+      setPersistence,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
     import {
       getDatabase,
       limitToLast,
@@ -1696,6 +1702,8 @@
       inventory: {},
       dailySlot: null,
       logs: [],
+      claimsLoaded: false,
+      dailySlotLoaded: false,
       serverOffset: 0,
       periodStart: 0,
       gameDay: 0,
@@ -2125,6 +2133,14 @@
         showNameModal(false);
         return false;
       }
+
+      // 再読み込み直後に取得履歴の同期が終わる前へ進むと、
+      // 取得済み判定をすり抜ける可能性があるため、両方揃うまで待つ。
+      if (!state.claimsLoaded || !state.dailySlotLoaded) {
+        showToast("取得状況を確認しています。数秒待ってからもう一度お試しください。");
+        return false;
+      }
+
       const schedule = getScheduleState(effectiveNow());
       if (schedule.phase !== "open") {
         showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
@@ -2713,11 +2729,28 @@
       };
 
       const result = await runTransaction(slotRef, function (current) {
+        // 新しい日なら新規予約できる。
         if (!current || Number(current.periodStart || 0) < Number(periodStart)) {
           return reservation;
         }
+
+        // 未来日のデータや、同じ日にすでに取得完了している場合は変更しない。
         if (Number(current.periodStart || 0) > Number(periodStart)) return;
         if (current.status === "claimed") return;
+
+        // 同じ日の予約が残っていて、その予約アイテムを本人がすでに取得済みなら、
+        // 再読み込みしても別アイテムへの予約変更を許可しない。
+        if (current.status === "reserved") {
+          const previousClaim = state.claims[current.itemId];
+          if (
+            previousClaim &&
+            previousClaim.uid === state.user.uid &&
+            Number(previousClaim.periodStart || 0) === Number(periodStart)
+          ) {
+            return;
+          }
+        }
+
         return reservation;
       }, { applyLocally: false });
 
@@ -2842,6 +2875,7 @@
 
       onValue(refPath("claims"), function (snapshot) {
         state.claims = snapshot.val() || {};
+        state.claimsLoaded = true;
         reconcileDailySlot();
         renderExploreHome();
         handleRoute(false);
@@ -2849,6 +2883,7 @@
 
       onValue(refPath("dailySlots/" + state.user.uid), function (snapshot) {
         state.dailySlot = snapshot.val() || null;
+        state.dailySlotLoaded = true;
         reconcileDailySlot();
         renderExploreHome();
         handleRoute(false);
@@ -3026,6 +3061,8 @@
     onAuthStateChanged(auth, async function (user) {
       if (!user) {
         try {
+          // Safari / iOSで再読み込みしても同じ匿名ユーザーIDを維持する。
+          await setPersistence(auth, browserLocalPersistence);
           await signInAnonymously(auth);
         } catch (error) {
           handleError(error);
@@ -3038,7 +3075,7 @@
       startRealtimeListeners();
       if (state.playerName) {
         try {
-          await set(ref(db, "players/" + user.uid), {
+          await set(refPath("players/" + user.uid), {
             name: state.playerName,
             updatedAt: serverNow()
           });

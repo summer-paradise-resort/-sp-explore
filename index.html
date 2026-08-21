@@ -516,6 +516,92 @@
     .loading-inner strong { display: block; font: 600 18px Georgia, serif; }
     .loading-inner span { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
 
+
+    .debug-panel {
+      position: fixed;
+      z-index: 140;
+      right: 12px;
+      top: calc(82px + env(safe-area-inset-top));
+      width: min(280px, calc(100vw - 24px));
+      padding: 12px;
+      border: 1px solid rgba(228, 181, 90, .38);
+      border-radius: 14px;
+      background: rgba(19, 14, 14, .96);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+    .debug-panel[hidden] { display: none !important; }
+    .debug-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .debug-head strong {
+      color: var(--gold);
+      font: 700 12px/1.2 Georgia, serif;
+      letter-spacing: .12em;
+    }
+    .debug-close {
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .debug-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .debug-row label { color: var(--muted); font-size: 11px; }
+    .debug-select {
+      min-height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+      background: rgba(255,255,255,.05);
+    }
+    .debug-button {
+      width: 100%;
+      min-height: 40px;
+      margin-top: 8px;
+      border: 1px solid rgba(228, 181, 90, .35);
+      border-radius: 10px;
+      color: var(--ink);
+      background: rgba(228, 181, 90, .08);
+      font-weight: 700;
+    }
+    .debug-button.danger {
+      border-color: rgba(255, 142, 142, .35);
+      background: rgba(255, 142, 142, .08);
+    }
+    .debug-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+    .debug-launch {
+      position: fixed;
+      z-index: 139;
+      right: 12px;
+      bottom: calc(86px + env(safe-area-inset-bottom));
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid rgba(228, 181, 90, .35);
+      border-radius: 999px;
+      color: var(--gold);
+      background: rgba(20, 15, 15, .94);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
     @media (min-width: 620px) {
       main { padding-inline: 24px; }
       .room-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -621,6 +707,33 @@
       </div>
     </form>
   </div>
+
+
+  <button class="debug-launch" id="debugLaunch" type="button">TEST MODE</button>
+
+  <aside class="debug-panel" id="debugPanel" hidden>
+    <div class="debug-head">
+      <strong>TEST MODE</strong>
+      <button class="debug-close" id="debugClose" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="debug-row">
+      <label for="debugDaySelect">テストする日</label>
+      <select class="debug-select" id="debugDaySelect">
+        <option value="1">1日目</option>
+        <option value="2">2日目</option>
+        <option value="3">3日目</option>
+        <option value="4">4日目</option>
+        <option value="5">5日目</option>
+        <option value="6">6日目</option>
+      </select>
+    </div>
+    <button class="debug-button" id="debugApplyDay" type="button">この日をテストする</button>
+    <button class="debug-button" id="debugShowInventory" type="button">この日の配置を確認</button>
+    <button class="debug-button danger" id="debugResetLocal" type="button">ローカル取得状態をリセット</button>
+    <button class="debug-button" id="debugExit" type="button">TEST MODEを終了</button>
+    <p class="debug-note">テストモードでは日時制限を無視します。Firebase上の本番claimsは削除しません。</p>
+  </aside>
+
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1013,7 +1126,7 @@
     function allDailyItemsClaimed(day) {
       const discoverables = getAllDiscoverablesForDay(day);
       return discoverables.length > 0 && discoverables.every(function (item) {
-        return Boolean(state.claims[item.id]);
+        return Boolean(effectiveClaims()[item.id]);
       });
     }
 
@@ -1520,7 +1633,10 @@
       reconciling: false,
       claimInProgress: false,
       lockedItemRoute: sessionStorage.getItem("sp-explore-locked-item-route") || "",
-      lockedItemId: sessionStorage.getItem("sp-explore-locked-item-id") || ""
+      lockedItemId: sessionStorage.getItem("sp-explore-locked-item-id") || "",
+      debugMode: localStorage.getItem("sp-explore-debug-mode") === "1",
+      debugDay: Number(localStorage.getItem("sp-explore-debug-day") || 1),
+      debugClaims: JSON.parse(localStorage.getItem("sp-explore-debug-claims") || "{}")
     };
 
     const el = {
@@ -1546,7 +1662,15 @@
       arrivalPage: document.getElementById("arrivalPage"),
       itemPage: document.getElementById("itemPage"),
       inventoryList: document.getElementById("inventoryList"),
-      toast: document.getElementById("toast")
+      toast: document.getElementById("toast"),
+      debugLaunch: document.getElementById("debugLaunch"),
+      debugPanel: document.getElementById("debugPanel"),
+      debugClose: document.getElementById("debugClose"),
+      debugDaySelect: document.getElementById("debugDaySelect"),
+      debugApplyDay: document.getElementById("debugApplyDay"),
+      debugShowInventory: document.getElementById("debugShowInventory"),
+      debugResetLocal: document.getElementById("debugResetLocal"),
+      debugExit: document.getElementById("debugExit")
     };
 
     let toastTimer = null;
@@ -1561,6 +1685,24 @@
 
     function serverNow() {
       return Date.now() + Number(state.serverOffset || 0);
+    }
+
+    function debugNow() {
+      if (!state.debugMode) return serverNow();
+      const entry = GAME_SCHEDULE.find(function (item) { return item.day === state.debugDay; }) || GAME_SCHEDULE[0];
+      return entry.start + 5 * MINUTE;
+    }
+
+    function effectiveNow() {
+      return state.debugMode ? debugNow() : serverNow();
+    }
+
+    function effectiveClaims() {
+      return state.debugMode ? state.debugClaims : state.claims;
+    }
+
+    function saveDebugClaims() {
+      localStorage.setItem("sp-explore-debug-claims", JSON.stringify(state.debugClaims || {}));
     }
 
     function getScheduleState(timestamp) {
@@ -1612,7 +1754,7 @@
     }
 
     function getCurrentGameDay() {
-      return getScheduleState(serverNow()).day;
+      return getScheduleState(effectiveNow()).day;
     }
 
     function getActiveItem(room) {
@@ -1681,7 +1823,8 @@
 
     function currentClaimByUser() {
       if (!state.user) return null;
-      return Object.values(state.claims).find(function (claim) {
+      const source = effectiveClaims();
+      return Object.values(source).find(function (claim) {
         return claim &&
           claim.uid === state.user.uid &&
           Number(claim.periodStart || 0) === Number(state.periodStart);
@@ -1689,6 +1832,7 @@
     }
 
     function hasClaimedToday() {
+      if (state.debugMode) return Boolean(currentClaimByUser());
       const slotDone = state.dailySlot &&
         Number(state.dailySlot.periodStart || 0) === Number(state.periodStart) &&
         state.dailySlot.status === "claimed";
@@ -1696,7 +1840,7 @@
     }
 
     function checkPeriodChange() {
-      const schedule = getScheduleState(serverNow());
+      const schedule = getScheduleState(effectiveNow());
       const changed =
         Number(state.periodStart) !== Number(schedule.periodStart) ||
         Number(state.gameDay) !== Number(schedule.day) ||
@@ -1715,7 +1859,7 @@
 
     function startPeriodClock() {
       window.clearInterval(periodTimer);
-      const schedule = getScheduleState(serverNow());
+      const schedule = getScheduleState(effectiveNow());
       state.periodStart = schedule.periodStart;
       state.gameDay = schedule.day;
       state.gameWindowOpen = schedule.phase === "open";
@@ -1723,14 +1867,14 @@
     }
 
     function renderExploreHome() {
-      const schedule = getScheduleState(serverNow());
+      const schedule = getScheduleState(effectiveNow());
       state.periodStart = schedule.periodStart;
       state.gameDay = schedule.day;
       state.gameWindowOpen = schedule.phase === "open";
 
       const done = hasClaimedToday();
       const dayPool = getAllDiscoverablesForDay(schedule.day);
-      const claimedCount = dayPool.filter(function (item) { return Boolean(state.claims[item.id]); }).length;
+      const claimedCount = dayPool.filter(function (item) { return Boolean(effectiveClaims()[item.id]); }).length;
       const dayCleared = allDailyItemsClaimed(schedule.day);
       el.dailyCount.textContent = dayPool.length ? claimedCount + " / " + dayPool.length : "—";
       el.journeyIntro.replaceChildren();
@@ -1855,7 +1999,7 @@
         document.body.classList.remove("item-locked");
         return;
       }
-      if (hasClaimedToday() || state.claims[state.lockedItemId]) {
+      if (hasClaimedToday() || effectiveClaims()[state.lockedItemId]) {
         clearItemLock();
         return;
       }
@@ -1884,7 +2028,7 @@
         showNameModal(false);
         return false;
       }
-      const schedule = getScheduleState(serverNow());
+      const schedule = getScheduleState(effectiveNow());
       if (schedule.phase !== "open") {
         showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
         setRoute("explore");
@@ -2106,7 +2250,7 @@
       const backTarget = arrivalRoute(room.id, context);
       const result = makeElement("section", "result-panel");
       const activeItem = getActiveItem(room);
-      const claim = activeItem ? state.claims[activeItem.id] : null;
+      const claim = activeItem ? effectiveClaims()[activeItem.id] : null;
 
       result.append(
         makeElement("p", "route-kicker", room.name),
@@ -2423,6 +2567,36 @@
       button.disabled = true;
       button.textContent = "確認中…";
 
+      if (state.debugMode) {
+        try {
+          if (state.debugClaims[item.id]) {
+            showToast("このテストアイテムは取得済みです。");
+            return;
+          }
+          const now = effectiveNow();
+          state.debugClaims[item.id] = {
+            uid: state.user.uid,
+            playerName: state.playerName,
+            itemName: item.name,
+            locationId: room.id,
+            claimedAt: now,
+            periodStart: state.periodStart,
+            gameDay: "DAY-" + state.gameDay
+          };
+          saveDebugClaims();
+          showToast("TEST：「" + item.name + "」を取得しました。");
+          clearItemLock();
+          setRoute("explore");
+        } finally {
+          state.claimInProgress = false;
+          button.disabled = false;
+          button.textContent = "このアイテムを入手する";
+          renderExploreHome();
+          handleRoute(false);
+        }
+        return;
+      }
+
       try {
         const slot = await reserveDailySlot(item);
         if (!slot.committed) {
@@ -2579,6 +2753,91 @@
       showToast(clean + "として参加しました。");
     }
 
+
+    function syncDebugPanel() {
+      el.debugDaySelect.value = String(state.debugDay || 1);
+      el.debugLaunch.textContent = state.debugMode ? "TEST MODE：DAY " + state.debugDay : "TEST MODE";
+    }
+
+    function enableDebugDay(day) {
+      const nextDay = Math.min(6, Math.max(1, Number(day) || 1));
+      state.debugMode = true;
+      state.debugDay = nextDay;
+      localStorage.setItem("sp-explore-debug-mode", "1");
+      localStorage.setItem("sp-explore-debug-day", String(nextDay));
+
+      const schedule = getScheduleState(effectiveNow());
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = true;
+
+      clearItemLock();
+      window.history.replaceState(null, "", "#explore");
+      syncDebugPanel();
+      renderExploreHome();
+      handleRoute(false);
+      showToast("TEST MODE：第" + nextDay + "日目を表示しています。");
+    }
+
+    function disableDebugMode() {
+      state.debugMode = false;
+      localStorage.removeItem("sp-explore-debug-mode");
+      const schedule = getScheduleState(serverNow());
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = schedule.phase === "open";
+      clearItemLock();
+      syncDebugPanel();
+      renderExploreHome();
+      handleRoute(false);
+      showToast("TEST MODEを終了しました。");
+    }
+
+    function showDebugDayContents() {
+      const day = state.debugDay;
+      const assignments = dailyRoomAssignments[day] || {};
+      const pool = getDailyPool(day);
+      const lines = Object.entries(assignments).map(function (entry) {
+        const room = rooms[entry[0]];
+        const item = pool[entry[1]];
+        return (room ? room.name : entry[0]) + "： " + (item ? item.name : "なし");
+      });
+      const notes = Object.values(rooms).filter(function (room) {
+        return room.dayItems && room.dayItems[day];
+      }).map(function (room) {
+        return room.name + "： " + room.dayItems[day].name;
+      });
+      alert("第" + day + "日目の配置\n\n" + lines.concat(notes).join("\n"));
+    }
+
+    el.debugLaunch.addEventListener("click", function () {
+      el.debugPanel.hidden = !el.debugPanel.hidden;
+      syncDebugPanel();
+    });
+    el.debugClose.addEventListener("click", function () {
+      el.debugPanel.hidden = true;
+    });
+    el.debugApplyDay.addEventListener("click", function () {
+      enableDebugDay(el.debugDaySelect.value);
+    });
+    el.debugShowInventory.addEventListener("click", showDebugDayContents);
+    el.debugResetLocal.addEventListener("click", function () {
+      state.debugClaims = {};
+      saveDebugClaims();
+      clearItemLock();
+      renderExploreHome();
+      handleRoute(false);
+      showToast("テスト取得状態をリセットしました。");
+    });
+    el.debugExit.addEventListener("click", function () {
+      disableDebugMode();
+      el.debugPanel.hidden = true;
+    });
+
+    // TEST MODEボタンを長押しではなく、通常タップで開けるようにしている。
+    // 本番公開時に隠したい場合は debugLaunch に hidden 属性を付ければよい。
+    syncDebugPanel();
+
     el.nameForm.addEventListener("submit", async function (event) {
       event.preventDefault();
       el.nameError.textContent = "";
@@ -2611,7 +2870,7 @@
     if (!window.location.hash) window.history.replaceState(null, "", "#explore");
 
     {
-      const initialSchedule = getScheduleState(serverNow());
+      const initialSchedule = getScheduleState(effectiveNow());
       state.periodStart = initialSchedule.periodStart;
       state.gameDay = initialSchedule.day;
       state.gameWindowOpen = initialSchedule.phase === "open";

@@ -938,6 +938,18 @@
       }
     };
 
+    const specialDiscoveries = {
+      tortureRoomFound: {
+        id: "torture-room-discovery-d2-1",
+        name: "拷問部屋を発見",
+        symbol: "!",
+        image: "torture-room.jpeg",
+        text: "やばい部屋をみつけてしまった。皆んなに知らせなきゃ！！！",
+        availableDay: 2,
+        type: "information"
+      }
+    };
+
     const namelessBullNotes = {
       1: {
         id: "nameless-bull-note-1",
@@ -1134,8 +1146,14 @@
       return noteAvailability[day] || [];
     }
 
+    function getCountedDiscoverablesForDay(day) {
+      const discoverables = getDailyPool(day).slice();
+      if (day === 2) discoverables.push(specialDiscoveries.tortureRoomFound);
+      return discoverables;
+    }
+
     function getAllDiscoverablesForDay(day) {
-      return getDailyPool(day).concat(getDayNotes(day));
+      return getCountedDiscoverablesForDay(day).concat(getDayNotes(day));
     }
 
     function allDailyItemsClaimed(day) {
@@ -1908,10 +1926,10 @@
       state.gameWindowOpen = schedule.phase === "open";
 
       const done = hasClaimedToday();
-      const dayPool = getAllDiscoverablesForDay(schedule.day);
-      const claimedCount = dayPool.filter(function (item) { return Boolean(effectiveClaims()[item.id]); }).length;
+      const countedPool = getCountedDiscoverablesForDay(schedule.day);
+      const claimedCount = countedPool.filter(function (item) { return Boolean(effectiveClaims()[item.id]); }).length;
       const dayCleared = allDailyItemsClaimed(schedule.day);
-      el.dailyCount.textContent = dayPool.length ? claimedCount + " / " + dayPool.length : "—";
+      el.dailyCount.textContent = countedPool.length ? claimedCount + " / " + countedPool.length : "—";
       el.journeyIntro.replaceChildren();
 
       if (schedule.phase === "waiting") {
@@ -1943,7 +1961,9 @@
       el.dailyStatusTitle.textContent = dayCleared
         ? "第" + state.gameDay + "日目の探索完了"
         : (done ? "第" + state.gameDay + "日目のアイテムを取得済み" : "第" + state.gameDay + "日目の残り");
-      el.dailyStatusNote.textContent = "本日の探索終了は 翌2:00（日本時間）です。";
+      el.dailyStatusNote.textContent = state.gameDay === 2
+        ? "本日の探索対象は8つ。見えている品だけが、すべてとは限りません。"
+        : "本日の探索終了は 翌2:00（日本時間）です。";
 
       if (dayCleared) {
         el.journeyIntro.className = "ended-panel";
@@ -2203,9 +2223,12 @@
         ? rooms[context.parentId].name + "へ戻る"
         : "最後の分岐へ戻る";
 
-      // 2日目に初めて拷問部屋を発見したときの専用演出。
-      // この日はアイテムを置かず、発見そのものをイベントとして見せる。
+      // 2日目の拷問部屋は「アイテムなし」の特殊発見イベント。
+      // 発見情報そのものを8個目の探索対象としてFirebaseで一度だけ取得できる。
       if (room.id === "torture-room" && state.gameDay === 2) {
+        const discovery = specialDiscoveries.tortureRoomFound;
+        const discoveryClaim = effectiveClaims()[discovery.id];
+
         const header = makeElement("section", "route-header");
         header.append(
           makeElement("p", "route-kicker", "SECRET AREA / DISCOVERED"),
@@ -2221,14 +2244,36 @@
           header.append(image);
         }
 
-        const alert = makeElement(
-          "p",
-          "torture-alert",
-          "やばい部屋をみつけてしまった。皆んなに知らせなきゃ！！！"
+        header.append(
+          makeElement(
+            "p",
+            "torture-alert",
+            "やばい部屋をみつけてしまった。皆んなに知らせなきゃ！！！"
+          )
         );
-        header.append(alert);
 
-        const returnButton = makeElement("button", "primary-button", "衣裳室へ戻る");
+        if (discoveryClaim) {
+          header.append(
+            makeElement(
+              "p",
+              "route-copy",
+              "この情報はすでに誰かが持ち帰り、皆んなへ共有されています。"
+            )
+          );
+        } else {
+          const infoButton = makeElement(
+            "button",
+            "primary-button",
+            "この情報を取得して皆んなに知らせる"
+          );
+          infoButton.type = "button";
+          infoButton.addEventListener("click", function () {
+            claimItem(room, discovery, infoButton);
+          });
+          header.append(infoButton);
+        }
+
+        const returnButton = makeElement("button", "secondary-wide", "衣裳室へ戻る");
         returnButton.type = "button";
         returnButton.addEventListener("click", function () {
           setRoute(backTarget);

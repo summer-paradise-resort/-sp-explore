@@ -189,6 +189,8 @@
     }
     .tab-button .tab-icon { font-size: 19px; }
     .tab-button.active { color: var(--ink); background: rgba(255, 255, 255, .07); }
+    body.item-locked .tabs { display: none; }
+    body.item-locked main { padding-bottom: 32px; }
 
     .view { display: none; }
     .view.active { display: block; animation: rise .22s ease-out; }
@@ -924,7 +926,7 @@
         ],
         item: {
           id: "locked-wooden-box",
-          name: "黒い木箱",
+          name: "鍵の掛かった木箱",
           symbol: "□",
           image: "locked-wooden-box.jpg"
         }
@@ -932,7 +934,7 @@
     };
 
     const openingStory = [
-      "EL CAPOTEの玄関扉は、固く閉ざされている。",
+      "EL CAPOTEの玄関扉が、背後で静かに閉じた。",
       "正面の灯りは弱く、左右の廊下は闇へ沈んでいる。",
       "古い絨毯には、いくつもの足跡が重なっていた。",
       "どの足跡も途中で消え、戻ってきた跡は見つからない。",
@@ -1160,7 +1162,9 @@
       periodStart: 0,
       listenersStarted: false,
       reconciling: false,
-      claimInProgress: false
+      claimInProgress: false,
+      lockedItemRoute: sessionStorage.getItem("sp-explore-locked-item-route") || "",
+      lockedItemId: sessionStorage.getItem("sp-explore-locked-item-id") || ""
     };
 
     const el = {
@@ -1370,6 +1374,37 @@
         setRoute(target);
       });
       return button;
+    }
+
+    function lockItemPage(room, context) {
+      state.lockedItemRoute = "#" + itemRoute(room.id, context);
+      state.lockedItemId = room.item.id;
+      sessionStorage.setItem("sp-explore-locked-item-route", state.lockedItemRoute);
+      sessionStorage.setItem("sp-explore-locked-item-id", state.lockedItemId);
+      document.body.classList.add("item-locked");
+    }
+
+    function clearItemLock() {
+      state.lockedItemRoute = "";
+      state.lockedItemId = "";
+      sessionStorage.removeItem("sp-explore-locked-item-route");
+      sessionStorage.removeItem("sp-explore-locked-item-id");
+      document.body.classList.remove("item-locked");
+    }
+
+    function enforceItemLock() {
+      if (!state.lockedItemRoute || !state.lockedItemId) {
+        document.body.classList.remove("item-locked");
+        return;
+      }
+      if (hasClaimedToday() || state.claims[state.lockedItemId]) {
+        clearItemLock();
+        return;
+      }
+      if ((window.location.hash || "#explore") !== state.lockedItemRoute) {
+        window.history.replaceState(null, "", state.lockedItemRoute);
+      }
+      document.body.classList.add("item-locked");
     }
 
     function getFirst(firstId) {
@@ -1606,6 +1641,7 @@
       );
 
       if (claim) {
+        if (state.lockedItemId === room.item.id) clearItemLock();
         result.append(makeElement("div", "velvet-empty", "赤いベルベットの上には、もう何も残されていない"));
         const returnButton = makeElement("button", "primary-button", "別の道へ戻って探索を続ける");
         returnButton.type = "button";
@@ -1614,6 +1650,7 @@
         });
         result.append(returnButton);
       } else {
+        lockItemPage(room, context);
         const discovery = makeElement("div", "item-discovery");
         discovery.append(
           makeElement("p", "find-label", "見つけたもの"),
@@ -1630,17 +1667,15 @@
           claimItem(room, room.item, claimButton);
         });
 
-        const leaveButton = makeElement("button", "secondary-wide", "今回は取らず、別の道へ戻る");
-        leaveButton.type = "button";
-        leaveButton.addEventListener("click", function () {
-          setRoute("path/1");
-        });
-
-        discovery.append(claimButton, leaveButton);
+        discovery.append(claimButton);
         result.append(discovery);
       }
 
-      el.itemPage.append(makeBackButton(room.name + "へ戻る", backTarget), result);
+      if (claim) {
+        el.itemPage.append(makeBackButton(room.name + "へ戻る", backTarget), result);
+      } else {
+        el.itemPage.append(result);
+      }
     }
 
     function routeParts() {
@@ -1674,6 +1709,7 @@
 
     function handleRoute(shouldScroll) {
       checkPeriodChange();
+      enforceItemLock();
       renderExploreHome();
       const parts = routeParts();
       const root = parts[0] || "explore";
@@ -1904,6 +1940,7 @@
       try {
         const slot = await reserveDailySlot(item);
         if (!slot.committed) {
+          clearItemLock();
           showToast("本日の探索は終了しました。");
           setRoute("explore");
           return;
@@ -1925,6 +1962,8 @@
         }, { applyLocally: false });
 
         if (!result.committed) {
+          state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
+          clearItemLock();
           showToast("誰かが先に取得しました。別の道を探索できます。");
           handleRoute(false);
           return;
@@ -1956,6 +1995,7 @@
           timestamp: now
         };
         await update(ref(db), updates);
+        clearItemLock();
         showToast("「" + item.name + "」を入手しました。");
         setRoute("explore");
       } catch (error) {

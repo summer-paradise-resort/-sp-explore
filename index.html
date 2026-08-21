@@ -728,7 +728,7 @@
   </div>
 
 
-  <button class="debug-launch" id="debugLaunch" type="button">TEST MODE</button>
+  <button class="debug-launch" id="debugLaunch" type="button" hidden>TEST MODE</button>
 
   <aside class="debug-panel" id="debugPanel" hidden>
     <div class="debug-head">
@@ -1663,6 +1663,12 @@
     const auth = getAuth(app);
     const db = getDatabase(app);
 
+    const TEST_ADMIN_TOKEN = "m_rTRppVrYBXSja12ScsIyCq";
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTestMode = urlParams.get("test") === "1";
+    const urlTestDay = Number(urlParams.get("day") || 1);
+    const urlIsAdmin = urlParams.get("admin") === TEST_ADMIN_TOKEN;
+
     const state = {
       user: null,
       playerName: localStorage.getItem("sp-explore-player-name") || "",
@@ -1679,8 +1685,9 @@
       claimInProgress: false,
       lockedItemRoute: sessionStorage.getItem("sp-explore-locked-item-route") || "",
       lockedItemId: sessionStorage.getItem("sp-explore-locked-item-id") || "",
-      debugMode: localStorage.getItem("sp-explore-debug-mode") === "1",
-      debugDay: Number(localStorage.getItem("sp-explore-debug-day") || 1),
+      debugMode: urlTestMode,
+      debugDay: Math.min(6, Math.max(1, urlTestDay || 1)),
+      debugAdmin: urlIsAdmin,
       debugClaims: JSON.parse(localStorage.getItem("sp-explore-debug-claims") || "{}")
     };
 
@@ -2860,21 +2867,24 @@
 
     function syncDebugPanel() {
       el.debugDaySelect.value = String(state.debugDay || 1);
+      el.debugLaunch.hidden = !state.debugAdmin;
+      if (!state.debugAdmin) el.debugPanel.hidden = true;
       el.debugLaunch.textContent = state.debugMode ? "TEST MODE：DAY " + state.debugDay : "TEST MODE";
     }
 
     function enableDebugDay(day) {
+      if (!state.debugAdmin) return;
       const nextDay = Math.min(6, Math.max(1, Number(day) || 1));
-      localStorage.setItem("sp-explore-debug-mode", "1");
-      localStorage.setItem("sp-explore-debug-day", String(nextDay));
-      window.location.hash = "#explore";
-      window.location.reload();
+      const params = new URLSearchParams(window.location.search);
+      params.set("test", "1");
+      params.set("day", String(nextDay));
+      params.set("admin", TEST_ADMIN_TOKEN);
+      window.location.href = window.location.pathname + "?" + params.toString() + "#explore";
     }
 
     function disableDebugMode() {
-      localStorage.removeItem("sp-explore-debug-mode");
-      window.location.hash = "#explore";
-      window.location.reload();
+      if (!state.debugAdmin) return;
+      window.location.href = window.location.pathname + "#explore";
     }
 
     function showDebugDayContents() {
@@ -2899,6 +2909,7 @@
     }
 
     el.debugLaunch.addEventListener("click", function () {
+      if (!state.debugAdmin) return;
       el.debugPanel.hidden = !el.debugPanel.hidden;
       syncDebugPanel();
     });
@@ -2906,10 +2917,15 @@
       el.debugPanel.hidden = true;
     });
     el.debugApplyDay.addEventListener("click", function () {
+      if (!state.debugAdmin) return;
       enableDebugDay(el.debugDaySelect.value);
     });
-    el.debugShowInventory.addEventListener("click", showDebugDayContents);
+    el.debugShowInventory.addEventListener("click", function () {
+      if (!state.debugAdmin) return;
+      showDebugDayContents();
+    });
     el.debugResetLocal.addEventListener("click", async function () {
+      if (!state.debugAdmin) return;
       if (!state.debugMode) {
         showToast("TEST MODEを開始してからリセットしてください。");
         return;

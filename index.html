@@ -729,9 +729,9 @@
     </div>
     <button class="debug-button" id="debugApplyDay" type="button">この日をテストする</button>
     <button class="debug-button" id="debugShowInventory" type="button">この日の配置を確認</button>
-    <button class="debug-button danger" id="debugResetLocal" type="button">ローカル取得状態をリセット</button>
+    <button class="debug-button danger" id="debugResetLocal" type="button">TESTデータをリセット</button>
     <button class="debug-button" id="debugExit" type="button">TEST MODEを終了</button>
-    <p class="debug-note">テストモードでは日時制限を無視します。Firebase上の本番claimsは削除しません。</p>
+    <p class="debug-note">テストモードでは日時制限を無視し、Firebaseの test/ 以下だけを使用します。本番データには触れません。</p>
   </aside>
 
 
@@ -1698,11 +1698,28 @@
     }
 
     function effectiveClaims() {
-      return state.debugMode ? state.debugClaims : state.claims;
+      return state.claims;
     }
 
     function saveDebugClaims() {
       localStorage.setItem("sp-explore-debug-claims", JSON.stringify(state.debugClaims || {}));
+    }
+
+    function dataRoot() {
+      return state.debugMode ? "test" : "";
+    }
+
+    function dbPath(path) {
+      const rootName = dataRoot();
+      return rootName ? rootName + "/" + path : path;
+    }
+
+    function refPath(path) {
+      return ref(db, dbPath(path));
+    }
+
+    function rootPath() {
+      return state.debugMode ? ref(db, "test") : ref(db);
     }
 
     function getScheduleState(timestamp) {
@@ -2514,7 +2531,7 @@
 
     async function writeLog(message, type, extra) {
       if (!state.user || !state.playerName) return;
-      const newLogRef = push(ref(db, "logs"));
+      const newLogRef = push(refPath("logs"));
       await set(newLogRef, Object.assign({
         uid: state.user.uid,
         playerName: state.playerName,
@@ -2532,7 +2549,7 @@
     }
 
     async function reserveDailySlot(item) {
-      const slotRef = ref(db, "dailySlots/" + state.user.uid);
+      const slotRef = refPath("dailySlots/" + state.user.uid);
       const periodStart = state.periodStart;
       const attemptId = makeAttemptId();
       const reservation = {
@@ -2567,36 +2584,6 @@
       button.disabled = true;
       button.textContent = "確認中…";
 
-      if (state.debugMode) {
-        try {
-          if (state.debugClaims[item.id]) {
-            showToast("このテストアイテムは取得済みです。");
-            return;
-          }
-          const now = effectiveNow();
-          state.debugClaims[item.id] = {
-            uid: state.user.uid,
-            playerName: state.playerName,
-            itemName: item.name,
-            locationId: room.id,
-            claimedAt: now,
-            periodStart: state.periodStart,
-            gameDay: "DAY-" + state.gameDay
-          };
-          saveDebugClaims();
-          showToast("TEST：「" + item.name + "」を取得しました。");
-          clearItemLock();
-          setRoute("explore");
-        } finally {
-          state.claimInProgress = false;
-          button.disabled = false;
-          button.textContent = "このアイテムを入手する";
-          renderExploreHome();
-          handleRoute(false);
-        }
-        return;
-      }
-
       try {
         const slot = await reserveDailySlot(item);
         if (!slot.committed) {
@@ -2607,7 +2594,7 @@
         }
 
         const now = serverNow();
-        const claimRef = ref(db, "claims/" + item.id);
+        const claimRef = refPath("claims/" + item.id);
         const claim = {
           uid: state.user.uid,
           playerName: state.playerName,
@@ -2634,7 +2621,7 @@
           updatedAt: serverNow()
         }));
 
-        const logKey = push(ref(db, "logs")).key;
+        const logKey = push(refPath("logs")).key;
         const updates = {};
         updates["inventories/" + state.user.uid + "/" + item.id] = {
           name: item.name,
@@ -2654,7 +2641,7 @@
           locationId: room.id,
           timestamp: now
         };
-        await update(ref(db), updates);
+        await update(rootPath(), updates);
         clearItemLock();
         showToast("「" + item.name + "」を入手しました。");
         setRoute("explore");
@@ -2678,7 +2665,7 @@
 
       state.reconciling = true;
       try {
-        await set(ref(db, "dailySlots/" + state.user.uid), Object.assign({}, state.dailySlot, {
+        await set(refPath("dailySlots/" + state.user.uid), Object.assign({}, state.dailySlot, {
           status: "claimed",
           updatedAt: serverNow()
         }));
@@ -2703,26 +2690,26 @@
         setConnection(connected ? "online" : "", connected ? "リアルタイム" : "再接続中");
       });
 
-      onValue(ref(db, "claims"), function (snapshot) {
+      onValue(refPath("claims"), function (snapshot) {
         state.claims = snapshot.val() || {};
         reconcileDailySlot();
         renderExploreHome();
         handleRoute(false);
       }, handleError);
 
-      onValue(ref(db, "dailySlots/" + state.user.uid), function (snapshot) {
+      onValue(refPath("dailySlots/" + state.user.uid), function (snapshot) {
         state.dailySlot = snapshot.val() || null;
         reconcileDailySlot();
         renderExploreHome();
         handleRoute(false);
       }, handleError);
 
-      onValue(ref(db, "inventories/" + state.user.uid), function (snapshot) {
+      onValue(refPath("inventories/" + state.user.uid), function (snapshot) {
         state.inventory = snapshot.val() || {};
         renderInventory();
       }, handleError);
 
-      const logsQuery = query(ref(db, "logs"), limitToLast(80));
+      const logsQuery = query(refPath("logs"), limitToLast(80));
       onValue(logsQuery, function (snapshot) {
         const raw = snapshot.val() || {};
         state.logs = Object.entries(raw).map(function (entry) {
@@ -2742,7 +2729,7 @@
       state.playerName = clean;
       localStorage.setItem("sp-explore-player-name", clean);
       el.playerNameLabel.textContent = clean;
-      await set(ref(db, "players/" + state.user.uid), {
+      await set(refPath("players/" + state.user.uid), {
         name: clean,
         updatedAt: serverNow()
       });
@@ -2761,36 +2748,16 @@
 
     function enableDebugDay(day) {
       const nextDay = Math.min(6, Math.max(1, Number(day) || 1));
-      state.debugMode = true;
-      state.debugDay = nextDay;
       localStorage.setItem("sp-explore-debug-mode", "1");
       localStorage.setItem("sp-explore-debug-day", String(nextDay));
-
-      const schedule = getScheduleState(effectiveNow());
-      state.periodStart = schedule.periodStart;
-      state.gameDay = schedule.day;
-      state.gameWindowOpen = true;
-
-      clearItemLock();
-      window.history.replaceState(null, "", "#explore");
-      syncDebugPanel();
-      renderExploreHome();
-      handleRoute(false);
-      showToast("TEST MODE：第" + nextDay + "日目を表示しています。");
+      window.location.hash = "#explore";
+      window.location.reload();
     }
 
     function disableDebugMode() {
-      state.debugMode = false;
       localStorage.removeItem("sp-explore-debug-mode");
-      const schedule = getScheduleState(serverNow());
-      state.periodStart = schedule.periodStart;
-      state.gameDay = schedule.day;
-      state.gameWindowOpen = schedule.phase === "open";
-      clearItemLock();
-      syncDebugPanel();
-      renderExploreHome();
-      handleRoute(false);
-      showToast("TEST MODEを終了しました。");
+      window.location.hash = "#explore";
+      window.location.reload();
     }
 
     function showDebugDayContents() {
@@ -2821,13 +2788,19 @@
       enableDebugDay(el.debugDaySelect.value);
     });
     el.debugShowInventory.addEventListener("click", showDebugDayContents);
-    el.debugResetLocal.addEventListener("click", function () {
-      state.debugClaims = {};
-      saveDebugClaims();
-      clearItemLock();
-      renderExploreHome();
-      handleRoute(false);
-      showToast("テスト取得状態をリセットしました。");
+    el.debugResetLocal.addEventListener("click", async function () {
+      if (!state.debugMode) {
+        showToast("TEST MODEを開始してからリセットしてください。");
+        return;
+      }
+      if (!window.confirm("TESTデータをすべて削除します。よろしいですか？")) return;
+      try {
+        await set(ref(db, "test"), null);
+        clearItemLock();
+        showToast("TESTデータをリセットしました。");
+      } catch (error) {
+        handleError(error);
+      }
     });
     el.debugExit.addEventListener("click", function () {
       disableDebugMode();

@@ -573,7 +573,7 @@
       <section class="view active" id="exploreView" data-view="explore">
         <div id="exploreHome">
           <section class="daily-panel" aria-live="polite">
-            <div><strong id="dailyStatusTitle">本日の取得数</strong><small id="dailyStatusNote">毎日22:00（日本時間）に更新されます。</small></div>
+            <div><strong id="dailyStatusTitle">本日の取得数</strong><small id="dailyStatusNote">各日22:45〜翌2:00（日本時間）のみ探索できます。</small></div>
             <span class="daily-count" id="dailyCount">0 / 1</span>
           </section>
           <section class="journey-card" id="journeyIntro">
@@ -649,10 +649,374 @@
       appId: "1:591036776852:web:a7a7b75f2f1c9a015b8f81"
     };
 
-    const HOUR = 60 * 60 * 1000;
+    const MINUTE = 60 * 1000;
+    const HOUR = 60 * MINUTE;
     const DAY = 24 * HOUR;
     const JST_OFFSET = 9 * HOUR;
-    const RESET_HOUR_JST = 22;
+
+    // EL CAPOTE 本番探索時間（日本時間）
+    // 1日目を 2026/08/28 とし、各日 22:45〜翌02:00 の3時間15分だけ探索できます。
+    const GAME_SCHEDULE = [
+      { day: 1, start: Date.UTC(2026, 7, 28, 13, 45), end: Date.UTC(2026, 7, 28, 17, 0) },
+      { day: 2, start: Date.UTC(2026, 7, 29, 13, 45), end: Date.UTC(2026, 7, 29, 17, 0) },
+      { day: 3, start: Date.UTC(2026, 7, 30, 13, 45), end: Date.UTC(2026, 7, 30, 17, 0) },
+      { day: 4, start: Date.UTC(2026, 7, 31, 13, 45), end: Date.UTC(2026, 7, 31, 17, 0) },
+      { day: 5, start: Date.UTC(2026, 8,  1, 13, 45), end: Date.UTC(2026, 8,  1, 17, 0) },
+      { day: 6, start: Date.UTC(2026, 8,  2, 13, 45), end: Date.UTC(2026, 8,  2, 17, 0) }
+    ];
+
+    // 既に制作済みの探索アイテム画像をまとめたカタログ。
+    // 配置日・配置場所が確定していないものは、ここへ登録だけしておき、
+    // rooms 側の dayItems に指定された時だけ探索画面へ出現します。
+    const coreItems = {
+      stealMuleta: {
+        id: "steal-muleta",
+        name: "強奪のムレータ",
+        symbol: "◆",
+        image: "muleta-purple-1080.jpg",
+        text: "指定した相手のアイテムを奪うことができる。"
+      },
+      costMuleta: {
+        id: "cost-muleta",
+        name: "代償のムレータ",
+        symbol: "◆",
+        image: "daisho_muleta_black_1080.png",
+        text: "指定した相手とアイテムを交換することができる。"
+      }
+    };
+
+    const explorationItems = {
+      afternoonTeaTicket: {
+        id: "afternoon-tea-ticket",
+        name: "アフタヌーンティーチケット",
+        symbol: "♕",
+        image: "赤いベルベットのアフタヌーンティーチケット.png",
+        text: "狂宴を終えたあと、任意の相手とアフタヌーンティーを楽しむことができる。"
+      },
+      alcoholTicket: {
+        id: "alcohol-ticket",
+        name: "アルコールチケット",
+        symbol: "♢",
+        image: "赤いベルベットのアルコールチケット.png",
+        text: "任意のお酒を特定の相手に飲ませられる。（毒は付与されない）"
+      },
+      blueBox: {
+        id: "blue-wooden-box",
+        name: "青い木箱",
+        symbol: "□",
+        image: "青い木箱の展示カード.png",
+        text: "青い木箱。何かを使えば開けられそうだ。"
+      },
+      redBox: {
+        id: "red-wooden-box",
+        name: "赤い木箱",
+        symbol: "□",
+        image: "深紅の木箱カード.png",
+        text: "赤い木箱。何かを使えば開けられそうだ。"
+      },
+      goldBox: {
+        id: "gold-wooden-box",
+        name: "金色の木箱",
+        symbol: "□",
+        image: "古びた黄金の木箱.png",
+        text: "金色の木箱。何かを使えば開けられそうだ。"
+      },
+      blackBox: {
+        id: "black-wooden-box",
+        name: "黒い木箱",
+        symbol: "□",
+        image: "黒い木箱のアイテムカード.png",
+        text: "黒い木箱。何かを使えば開けられそうだ。"
+      },
+      saw: {
+        id: "old-hand-saw",
+        name: "ノコギリ",
+        symbol: "⌁",
+        image: "赤いベルベットのノコギリ.png",
+        text: "鋭利な刃物。何かを開けるのに使えそうだ。"
+      },
+      remote: {
+        id: "mystery-remote",
+        name: "何かのリモコン",
+        symbol: "⌾",
+        image: "赤いベルベットの謎のリモコン.png",
+        text: "何かを振動させられる。セットで闘牛士に売ると、喝采の金貨2枚になる。"
+      },
+      massager: {
+        id: "adult-massager",
+        name: "大人のマッサージ機",
+        symbol: "◈",
+        image: "謎のマッサージ機カード.png",
+        text: "リモコン操作で振動する。セットで闘牛士に売ると、喝采の金貨2枚になる。"
+      },
+      handcuffs: {
+        id: "iron-handcuffs",
+        name: "手枷",
+        symbol: "∞",
+        image: "アンティーク黒鉄の手枷.png",
+        text: "任意の相手を拘束するためのアイテム。"
+      },
+      leatherRestraint: {
+        id: "leather-restraint",
+        name: "革ベルトの拘束具",
+        symbol: "∞",
+        image: "黒革拘束具セット.png",
+        text: "任意の相手を拘束するためのアイテム。"
+      },
+      antidote: {
+        id: "antidote",
+        name: "解毒薬",
+        symbol: "◉",
+        image: "エメラルド色の解毒薬瓶.png",
+        text: "毒を打ち消すことができる。"
+      },
+      applauseCoin: {
+        id: "applause-coin",
+        name: "喝采の金貨",
+        symbol: "●",
+        image: "アンティーク金貨のコレクションカード.png",
+        text: "集めた金貨の枚数に応じて景品と交換できる。"
+      },
+      hernandoCollar: {
+        id: "hernando-collar",
+        name: "エルナンドの首輪",
+        symbol: "◯",
+        image: "エルナンドの黒革首輪.png",
+        text: "赤い布を握るものにも、角は生える。"
+      },
+      cowBikini: {
+        id: "cow-pattern-bikini",
+        name: "牛柄のビキニ",
+        symbol: "♢",
+        image: "牛柄ビキニの収集カード.png",
+        text: "何かとセットにすることで、喝采の金貨2枚と交換できる。"
+      },
+      cowbellCollar: {
+        id: "cowbell-collar",
+        name: "カウベルのついた首輪",
+        symbol: "♧",
+        image: "真鍮のカウベル付き首輪.png",
+        text: "何かとセットにすることで、喝采の金貨2枚と交換できる。"
+      },
+      muletaBack: {
+        id: "muleta-back-profile",
+        name: "ムレータの裏側",
+        symbol: "◆",
+        image: "ムレータの裏側に隠されたプロフィール.png",
+        text: "エルナンドのプロフィールを開示できる欠片。"
+      }
+    };
+
+    const namelessBullNotes = {
+      1: {
+        id: "nameless-bull-note-1",
+        name: "1. 名もなき牡牛の手記",
+        symbol: "Ⅰ",
+        image: "01_nameless_bull_note_1080.png",
+        availableDay: 2,
+        text: "闘牛場の門は固く閉ざされたままだ。最後の牡牛が決められたとき、その牡牛を生贄に他の闘牛たちは解放される。"
+      },
+      2: {
+        id: "nameless-bull-note-2",
+        name: "2. 名もなき牡牛の手記",
+        symbol: "Ⅱ",
+        image: "02_nameless_bull_note_1080.png",
+        availableDay: 3,
+        text: "最後の牡牛は、多数決では決まらない。すべての客人が同じ名を差し出したとき、その名だけが角を得る。"
+      },
+      3: {
+        id: "nameless-bull-note-3",
+        name: "3. 名もなき牡牛の手記",
+        symbol: "Ⅲ",
+        image: "03_nameless_bull_note_1080.png",
+        availableDay: 4,
+        text: "闘牛士は、相手の顔も肉体も覚えない。喉元に掲げられた名だけを、牡牛の名としてムレータに刻む。"
+      },
+      4: {
+        id: "nameless-bull-note-4",
+        name: "4. 名もなき牡牛の手記",
+        symbol: "Ⅳ",
+        image: "04_nameless_bull_note_1080.png",
+        availableDay: 5,
+        text: "赤い布を握る者にも、角は生える。ただし、彼は自ら首輪へ喉を差し出さない。名を嵌めるには、まず鉄と革でその自由を奪え。"
+      },
+      5: {
+        id: "nameless-bull-note-5",
+        name: "5. 名もなき牡牛の手記",
+        symbol: "Ⅴ",
+        image: "05_nameless_bull_note_1080.png",
+        availableDay: 5,
+        text: "誰一人として客を残したくないのなら、最後に残すべきは、招かれた者ではなく――招いた者だ。"
+      }
+    };
+
+
+    function itemInstance(base, day, serial) {
+      return Object.assign({}, base, {
+        id: base.id + "-d" + day + "-" + serial,
+        baseId: base.id
+      });
+    }
+
+    const dailyItemPools = {
+      1: [
+        itemInstance(coreItems.stealMuleta, 1, 1),
+        itemInstance(coreItems.stealMuleta, 1, 2),
+        itemInstance(explorationItems.antidote, 1, 1),
+        itemInstance(explorationItems.antidote, 1, 2),
+        itemInstance(explorationItems.leatherRestraint, 1, 1),
+        itemInstance(coreItems.costMuleta, 1, 1),
+        itemInstance(explorationItems.blueBox, 1, 1),
+        itemInstance(explorationItems.applauseCoin, 1, 1)
+      ],
+      2: [
+        itemInstance(coreItems.stealMuleta, 2, 1),
+        itemInstance(explorationItems.antidote, 2, 1),
+        itemInstance(explorationItems.remote, 2, 1),
+        itemInstance(explorationItems.redBox, 2, 1),
+        itemInstance(explorationItems.saw, 2, 1),
+        itemInstance(explorationItems.muletaBack, 2, 1),
+        itemInstance(explorationItems.alcoholTicket, 2, 1)
+      ],
+      3: [
+        itemInstance(coreItems.stealMuleta, 3, 1),
+        itemInstance(coreItems.costMuleta, 3, 1),
+        itemInstance(explorationItems.saw, 3, 1),
+        itemInstance(explorationItems.antidote, 3, 1),
+        itemInstance(explorationItems.alcoholTicket, 3, 1),
+        itemInstance(explorationItems.cowbellCollar, 3, 1),
+        itemInstance(explorationItems.muletaBack, 3, 1)
+      ],
+      4: [
+        itemInstance(coreItems.stealMuleta, 4, 1),
+        itemInstance(coreItems.stealMuleta, 4, 2),
+        itemInstance(explorationItems.saw, 4, 1),
+        itemInstance(explorationItems.goldBox, 4, 1),
+        itemInstance(explorationItems.antidote, 4, 1),
+        itemInstance(explorationItems.alcoholTicket, 4, 1),
+        itemInstance(explorationItems.cowbellCollar, 4, 1)
+      ],
+      5: [
+        itemInstance(coreItems.stealMuleta, 5, 1),
+        itemInstance(coreItems.costMuleta, 5, 1),
+        itemInstance(explorationItems.saw, 5, 1),
+        itemInstance(explorationItems.antidote, 5, 1),
+        itemInstance(explorationItems.blackBox, 5, 1),
+        itemInstance(explorationItems.muletaBack, 5, 1),
+        itemInstance(explorationItems.leatherRestraint, 5, 1)
+      ],
+      6: [
+        itemInstance(coreItems.stealMuleta, 6, 1),
+        itemInstance(coreItems.stealMuleta, 6, 2),
+        itemInstance(coreItems.costMuleta, 6, 1),
+        itemInstance(explorationItems.antidote, 6, 1),
+        itemInstance(explorationItems.muletaBack, 6, 1),
+        itemInstance(explorationItems.applauseCoin, 6, 1),
+        itemInstance(explorationItems.afternoonTeaTicket, 6, 1)
+      ]
+    };
+
+    // 手記は指定日から独立して出現する。通常のその日の取得枠とは別の探索物として扱う。
+    const noteAvailability = {
+      2: [namelessBullNotes[1]],
+      3: [namelessBullNotes[2]],
+      4: [namelessBullNotes[3]],
+      5: [namelessBullNotes[4], namelessBullNotes[5]],
+      6: []
+    };
+
+    // 各日の通常アイテムを館内へ散らして配置する。
+    // 同じアイテムが複数ある日も、別の部屋・別IDとして扱われる。
+    // 手記が出る部屋とは重ならないようにして、通常アイテムが隠れないようにする。
+    const dailyRoomAssignments = {
+      1: {
+        "portrait-gallery": 0, // 強奪のムレータ①
+        "arena": 1,            // 強奪のムレータ②
+        "clinic": 2,           // 解毒薬①
+        "wine-cellar": 3,      // 解毒薬②
+        "torture-room": 4,     // 革ベルトの拘束具
+        "bull-pen": 5,         // 代償のムレータ
+        "study": 6,            // 青い木箱
+        "dining-room": 7       // 喝采の金貨
+      },
+      2: {
+        "costume-room": 0,     // 強奪のムレータ
+        "clinic": 1,           // 解毒薬
+        "hernando-room": 2,    // 何かのリモコン
+        "wine-cellar": 3,      // 赤い木箱
+        "kitchen": 4,          // ノコギリ
+        "portrait-gallery": 5, // ムレータの裏側
+        "dining-room": 6       // アルコールチケット
+        // 闘牛場：名もなき牡牛の手記①
+      },
+      3: {
+        "arena": 0,            // 強奪のムレータ
+        "bull-pen": 1,         // 代償のムレータ
+        "torture-room": 2,     // ノコギリ
+        "clinic": 3,           // 解毒薬
+        "wine-cellar": 4,      // アルコールチケット
+        "dining-room": 5,      // カウベルのついた首輪
+        "costume-room": 6      // ムレータの裏側
+        // 書斎：名もなき牡牛の手記②
+      },
+      4: {
+        "arena": 0,            // 強奪のムレータ①
+        "bull-pen": 1,         // 強奪のムレータ②
+        "kitchen": 2,          // ノコギリ
+        "hernando-room": 3,    // 金色の木箱
+        "clinic": 4,           // 解毒薬
+        "wine-cellar": 5,      // アルコールチケット
+        "dining-room": 6       // カウベルのついた首輪
+        // 衣裳室：名もなき牡牛の手記③
+      },
+      5: {
+        "arena": 0,            // 強奪のムレータ
+        "bull-pen": 1,         // 代償のムレータ
+        "kitchen": 2,          // ノコギリ
+        "clinic": 3,           // 解毒薬
+        "study": 4,            // 黒色の木箱
+        "portrait-gallery": 5, // ムレータの裏側
+        "costume-room": 6      // 革ベルトの拘束具
+        // 拷問部屋：名もなき牡牛の手記④
+        // エルナンドの自室：名もなき牡牛の手記⑤
+      },
+      6: {
+        "arena": 0,            // 強奪のムレータ①
+        "portrait-gallery": 1, // 強奪のムレータ②
+        "bull-pen": 2,         // 代償のムレータ
+        "clinic": 3,           // 解毒薬
+        "costume-room": 4,     // ムレータの裏側
+        "study": 5,            // 喝采の金貨
+        "dining-room": 6       // アフタヌーンティーチケット
+      }
+    };
+
+    function getDailyPool(day) {
+      return dailyItemPools[day] || [];
+    }
+
+    function getDailyRoomItem(roomId, day) {
+      const assignments = dailyRoomAssignments[day] || {};
+      const index = assignments[roomId];
+      const pool = getDailyPool(day);
+      return Number.isInteger(index) && pool[index] ? pool[index] : null;
+    }
+
+    function getDayNotes(day) {
+      return noteAvailability[day] || [];
+    }
+
+    function getAllDiscoverablesForDay(day) {
+      return getDailyPool(day).concat(getDayNotes(day));
+    }
+
+    function allDailyItemsClaimed(day) {
+      const discoverables = getAllDiscoverablesForDay(day);
+      return discoverables.length > 0 && discoverables.every(function (item) {
+        return Boolean(state.claims[item.id]);
+      });
+    }
+
 
     const rooms = {
       "costume-room": {
@@ -678,6 +1042,7 @@
           symbol: "◆",
           image: "muleta-purple-1080.jpg"
         },
+        dayItems: { 4: namelessBullNotes[3] },
         secretExit: {
           roomId: "torture-room",
           label: "衣裳をかき分け、さらに奥へ進む",
@@ -707,6 +1072,7 @@
           symbol: "▤",
           image: "torn-ledger.jpg"
         },
+        dayItems: { 3: namelessBullNotes[2] },
         secretExit: {
           roomId: "hernando-room",
           label: "本棚の裏を調べ、奥へ進む",
@@ -730,12 +1096,7 @@
           "薪箱の陰に、古びた道具が置き忘れられていた。",
           "配膳口の向こうでは、誰かが椅子を引く音がした。"
         ],
-        item: {
-          id: "old-hand-saw",
-          name: "古いノコギリ",
-          symbol: "⌁",
-          image: "old-saw.jpg"
-        }
+        item: explorationItems.saw
       },
       "bull-pen": {
         id: "bull-pen",
@@ -807,7 +1168,8 @@
           name: "折れた闘牛槍",
           symbol: "†",
           image: "broken-lance.jpg"
-        }
+        },
+        dayItems: { 2: namelessBullNotes[1] }
       },
       "dining-room": {
         id: "dining-room",
@@ -874,12 +1236,7 @@
           "透明な中身は、揺らしても少しも波を立てない。",
           "診察台の下から、浅い呼吸のような音が聞こえた。"
         ],
-        item: {
-          id: "unlabeled-vial",
-          name: "ラベルのない小瓶",
-          symbol: "◉",
-          image: "unlabeled-vial.jpg"
-        }
+        item: explorationItems.antidote
       },
       "torture-room": {
         id: "torture-room",
@@ -899,12 +1256,8 @@
           "椅子の上に、革製の奇妙な品が置かれていた。",
           "背後で隠し扉が閉じ、衣裳の擦れる音だけが残った。"
         ],
-        item: {
-          id: "odd-leather-restraint",
-          name: "用途不明の革製拘束具",
-          symbol: "∞",
-          image: "leather-restraint.jpg"
-        }
+        item: explorationItems.leatherRestraint,
+        dayItems: { 5: namelessBullNotes[4] }
       },
       "hernando-room": {
         id: "hernando-room",
@@ -929,7 +1282,8 @@
           name: "鍵の掛かった木箱",
           symbol: "□",
           image: "locked-wooden-box.jpg"
-        }
+        },
+        dayItems: { 5: namelessBullNotes[5] }
       }
     };
 
@@ -1160,6 +1514,8 @@
       logs: [],
       serverOffset: 0,
       periodStart: 0,
+      gameDay: 0,
+      gameWindowOpen: false,
       listenersStarted: false,
       reconciling: false,
       claimInProgress: false,
@@ -1207,25 +1563,69 @@
       return Date.now() + Number(state.serverOffset || 0);
     }
 
+    function getScheduleState(timestamp) {
+      const first = GAME_SCHEDULE[0];
+      const last = GAME_SCHEDULE[GAME_SCHEDULE.length - 1];
+
+      for (const entry of GAME_SCHEDULE) {
+        if (timestamp >= entry.start && timestamp < entry.end) {
+          return {
+            phase: "open",
+            day: entry.day,
+            periodStart: entry.start,
+            start: entry.start,
+            end: entry.end,
+            next: null
+          };
+        }
+        if (timestamp < entry.start) {
+          return {
+            phase: "waiting",
+            day: entry.day,
+            periodStart: entry.start,
+            start: entry.start,
+            end: entry.end,
+            next: entry
+          };
+        }
+      }
+
+      return {
+        phase: timestamp < first.start ? "waiting" : "finished",
+        day: timestamp < first.start ? 1 : 6,
+        periodStart: timestamp < first.start ? first.start : last.start,
+        start: timestamp < first.start ? first.start : last.start,
+        end: timestamp < first.start ? first.end : last.end,
+        next: timestamp < first.start ? first : null
+      };
+    }
+
     function getPeriodStart(timestamp) {
-      const local = new Date(timestamp + JST_OFFSET);
-      const year = local.getUTCFullYear();
-      const month = local.getUTCMonth();
-      const day = local.getUTCDate();
-      let start = Date.UTC(year, month, day, RESET_HOUR_JST - 9, 0, 0, 0);
-      if (timestamp < start) start = Date.UTC(year, month, day - 1, RESET_HOUR_JST - 9, 0, 0, 0);
-      return start;
+      return getScheduleState(timestamp).periodStart;
     }
 
     function getPeriodKey(periodStart) {
-      const local = new Date(periodStart + JST_OFFSET);
-      const year = local.getUTCFullYear();
-      const month = String(local.getUTCMonth() + 1).padStart(2, "0");
-      const day = String(local.getUTCDate()).padStart(2, "0");
-      return year + "-" + month + "-" + day;
+      const entry = GAME_SCHEDULE.find(function (item) {
+        return Number(item.start) === Number(periodStart);
+      });
+      return entry ? "DAY-" + entry.day : "OUTSIDE";
     }
 
-    function formatReset(timestamp) {
+    function getCurrentGameDay() {
+      return getScheduleState(serverNow()).day;
+    }
+
+    function getActiveItem(room) {
+      const day = state.gameDay || getCurrentGameDay();
+
+      // 手記の既存配置を優先する（2日目=闘牛場、3日目=書斎、4日目=衣裳室、5日目=拷問部屋/自室）。
+      if (room.dayItems && room.dayItems[day]) return room.dayItems[day];
+
+      // それ以外の部屋には、その日の通常アイテムを順番に配置する。
+      return getDailyRoomItem(room.id, day);
+    }
+
+    function formatDateTime(timestamp) {
       return new Intl.DateTimeFormat("ja-JP", {
         timeZone: "Asia/Tokyo",
         month: "numeric",
@@ -1296,9 +1696,18 @@
     }
 
     function checkPeriodChange() {
-      const nextPeriod = getPeriodStart(serverNow());
-      if (Number(state.periodStart) === Number(nextPeriod)) return;
-      state.periodStart = nextPeriod;
+      const schedule = getScheduleState(serverNow());
+      const changed =
+        Number(state.periodStart) !== Number(schedule.periodStart) ||
+        Number(state.gameDay) !== Number(schedule.day) ||
+        state.gameWindowOpen !== (schedule.phase === "open");
+
+      if (!changed) return;
+
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = schedule.phase === "open";
+
       renderExploreHome();
       if (hasClaimedToday()) setRoute("explore");
       handleRoute(false);
@@ -1306,31 +1715,80 @@
 
     function startPeriodClock() {
       window.clearInterval(periodTimer);
-      state.periodStart = getPeriodStart(serverNow());
-      periodTimer = window.setInterval(checkPeriodChange, 30000);
+      const schedule = getScheduleState(serverNow());
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = schedule.phase === "open";
+      periodTimer = window.setInterval(checkPeriodChange, 10000);
     }
 
     function renderExploreHome() {
+      const schedule = getScheduleState(serverNow());
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = schedule.phase === "open";
+
       const done = hasClaimedToday();
-      const nextReset = state.periodStart + DAY;
-      el.dailyCount.textContent = done ? "1 / 1" : "0 / 1";
-      el.dailyStatusTitle.textContent = done ? "本日のアイテムを取得済み" : "本日の取得数";
-      el.dailyStatusNote.textContent = "次の更新は " + formatReset(nextReset) + "（日本時間）です。";
+      const dayPool = getAllDiscoverablesForDay(schedule.day);
+      const claimedCount = dayPool.filter(function (item) { return Boolean(state.claims[item.id]); }).length;
+      const dayCleared = allDailyItemsClaimed(schedule.day);
+      el.dailyCount.textContent = dayPool.length ? claimedCount + " / " + dayPool.length : "—";
       el.journeyIntro.replaceChildren();
+
+      if (schedule.phase === "waiting") {
+        el.dailyStatusTitle.textContent = "探索開始前";
+        el.dailyStatusNote.textContent =
+          "第" + schedule.day + "日目は " + formatDateTime(schedule.start) + "〜翌2:00（日本時間）です。";
+        el.journeyIntro.className = "ended-panel";
+        el.journeyIntro.append(
+          makeElement("div", "ended-mark", "◇"),
+          makeElement("h2", "", "まだ扉は開いていません"),
+          makeElement("p", "", "探索は各日22:45〜翌2:00のみ開放されます。開始時刻になると、この画面から探索へ進めます。")
+        );
+        return;
+      }
+
+      if (schedule.phase === "finished") {
+        el.dailyStatusTitle.textContent = "探索期間終了";
+        el.dailyStatusNote.textContent = "6日目の探索は終了しました。";
+        el.dailyCount.textContent = "—";
+        el.journeyIntro.className = "ended-panel";
+        el.journeyIntro.append(
+          makeElement("div", "ended-mark", "◇"),
+          makeElement("h2", "", "EL CAPOTEの探索は終了しました"),
+          makeElement("p", "", "2026年9月3日 2:00をもって、すべての探索時間が終了しました。")
+        );
+        return;
+      }
+
+      el.dailyStatusTitle.textContent = dayCleared
+        ? "第" + state.gameDay + "日目の探索完了"
+        : (done ? "第" + state.gameDay + "日目のアイテムを取得済み" : "第" + state.gameDay + "日目の残り");
+      el.dailyStatusNote.textContent = "本日の探索終了は 翌2:00（日本時間）です。";
+
+      if (dayCleared) {
+        el.journeyIntro.className = "ended-panel";
+        el.journeyIntro.append(
+          makeElement("div", "ended-mark", "◇"),
+          makeElement("h2", "", "これ以上はもう何もなさそうだ。"),
+          makeElement("p", "", "この日に用意されたアイテムはすべて拾われました。本日の探索はここで終了です。")
+        );
+        return;
+      }
 
       if (done) {
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
           makeElement("div", "ended-mark", "◇"),
           makeElement("h2", "", "本日の探索は終了しました"),
-          makeElement("p", "", "次の22:00になると、再び探索できます。前日までに誰かが取得したアイテムは復活しません。")
+          makeElement("p", "", "この日の取得枠は使用済みです。次の日の22:45になると、再び探索できます。前日までに誰かが取得したアイテムは復活しません。")
         );
         return;
       }
 
       el.journeyIntro.className = "journey-card";
       el.journeyIntro.append(
-        makeElement("p", "choice-step", "BEGIN EXPLORATION"),
+        makeElement("p", "choice-step", "DAY " + state.gameDay + " / BEGIN EXPLORATION"),
         makeElement("h2", "", "探索へ行く"),
         makeElement("p", "", "扉の向こうでは、選んだ道の組み合わせによって到着する場所が変わります。三つの分岐を越え、EL CAPOTEの奥へ進んでください。")
       );
@@ -1339,7 +1797,7 @@
       start.addEventListener("click", function () {
         if (!ensureCanExplore()) return;
         setRoute("path/1");
-        writeLog(state.playerName + "が探索へ向かいました。", "move", { stage: 0 }).catch(handleError);
+        writeLog(state.playerName + "が探索へ向かいました。", "move", { stage: 0, gameDay: state.gameDay }).catch(handleError);
       });
       el.journeyIntro.append(start);
     }
@@ -1424,6 +1882,20 @@
     function ensureCanExplore() {
       if (!state.user || !state.playerName) {
         showNameModal(false);
+        return false;
+      }
+      const schedule = getScheduleState(serverNow());
+      if (schedule.phase !== "open") {
+        showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
+        setRoute("explore");
+        return false;
+      }
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = true;
+      if (allDailyItemsClaimed(state.gameDay)) {
+        showToast("これ以上はもう何もなさそうだ。");
+        setRoute("explore");
         return false;
       }
       if (hasClaimedToday()) {
@@ -1633,15 +2105,22 @@
       el.itemPage.replaceChildren();
       const backTarget = arrivalRoute(room.id, context);
       const result = makeElement("section", "result-panel");
-      const claim = state.claims[room.item.id];
+      const activeItem = getActiveItem(room);
+      const claim = activeItem ? state.claims[activeItem.id] : null;
 
       result.append(
         makeElement("p", "route-kicker", room.name),
         makeElement("h3", "", "奥に残されたもの")
       );
 
-      if (claim) {
-        if (state.lockedItemId === room.item.id) clearItemLock();
+      if (!activeItem) {
+        result.append(makeElement("div", "velvet-empty", "これ以上はもう何もなさそうだ。"));
+        const returnButton = makeElement("button", "primary-button", "別の道へ戻る");
+        returnButton.type = "button";
+        returnButton.addEventListener("click", function () { setRoute("path/1"); });
+        result.append(returnButton);
+      } else if (claim) {
+        if (state.lockedItemId === activeItem.id) clearItemLock();
         result.append(makeElement("div", "velvet-empty", "赤いベルベットの上には、もう何も残されていない"));
         const returnButton = makeElement("button", "primary-button", "別の道へ戻って探索を続ける");
         returnButton.type = "button";
@@ -1650,21 +2129,24 @@
         });
         result.append(returnButton);
       } else {
-        lockItemPage(room, context);
+        lockItemPage(Object.assign({}, room, { item: activeItem }), context);
         const discovery = makeElement("div", "item-discovery");
         discovery.append(
           makeElement("p", "find-label", "見つけたもの"),
-          makeItemVisual(room.item)
+          makeItemVisual(activeItem)
         );
 
-        if (!room.item.image) {
-          discovery.append(makeElement("p", "route-copy", room.item.name));
+        if (!activeItem.image) {
+          discovery.append(makeElement("p", "route-copy", activeItem.name));
+        }
+        if (activeItem.text) {
+          discovery.append(makeElement("p", "route-copy", activeItem.text));
         }
 
         const claimButton = makeElement("button", "primary-button", "このアイテムを入手する");
         claimButton.type = "button";
         claimButton.addEventListener("click", function () {
-          claimItem(room, room.item, claimButton);
+          claimItem(room, activeItem, claimButton);
         });
 
         discovery.append(claimButton);
@@ -1839,6 +2321,10 @@
 
     function itemSymbol(itemId, savedSymbol) {
       if (savedSymbol) return savedSymbol;
+      const note = Object.values(namelessBullNotes).find(function (entry) {
+        return entry.id === itemId;
+      });
+      if (note) return note.symbol;
       const room = Object.values(rooms).find(function (entry) {
         return entry.item && entry.item.id === itemId;
       });
@@ -1955,7 +2441,7 @@
           locationId: room.id,
           claimedAt: now,
           periodStart: state.periodStart,
-          gameDay: getPeriodKey(state.periodStart)
+          gameDay: "DAY-" + state.gameDay
         };
         const result = await runTransaction(claimRef, function (current) {
           return current === null ? claim : undefined;
@@ -2124,7 +2610,12 @@
     });
     if (!window.location.hash) window.history.replaceState(null, "", "#explore");
 
-    state.periodStart = getPeriodStart(serverNow());
+    {
+      const initialSchedule = getScheduleState(serverNow());
+      state.periodStart = initialSchedule.periodStart;
+      state.gameDay = initialSchedule.day;
+      state.gameWindowOpen = initialSchedule.phase === "open";
+    }
     startPeriodClock();
     renderExploreHome();
     renderInventory();

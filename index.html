@@ -304,6 +304,24 @@
     .route-kicker { margin: 0 0 8px; color: var(--gold); font: 700 11px/1.4 Georgia, serif; letter-spacing: .18em; }
     .route-title { margin: 0; font: 600 clamp(29px, 8vw, 43px)/1.08 Georgia, serif; }
     .route-copy { margin: 13px 0 0; color: var(--muted); font-size: 13px; line-height: 1.85; }
+    .torture-discovery-image {
+      display: block;
+      width: 100%;
+      margin-top: 18px;
+      border: 1px solid rgba(228, 181, 90, .28);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .torture-alert {
+      margin: 22px 0 0;
+      color: #ff3b3b;
+      font-size: clamp(25px, 7vw, 38px);
+      font-weight: 900;
+      line-height: 1.35;
+      letter-spacing: .03em;
+      text-align: center;
+      text-shadow: 0 0 18px rgba(255, 59, 59, .22);
+    }
     .route-instruction { margin: 20px 2px 11px; font-size: 15px; }
     .spot-list { display: grid; gap: 10px; }
     .spot-link {
@@ -1359,6 +1377,7 @@
         subtitle: "衣裳室のさらに奥",
         hidden: true,
         minDay: 2,
+        image: "torture-room.jpeg",
         story: [
           "衣裳をかき分けると、その奥で冷たい石壁に触れた。",
           "壁を押すと、蝶番の音を殺した細い扉が開いていく。",
@@ -2186,6 +2205,42 @@
       const backLabel = context.kind === "secret"
         ? rooms[context.parentId].name + "へ戻る"
         : "最後の分岐へ戻る";
+
+      // 2日目に初めて拷問部屋を発見したときの専用演出。
+      // この日はアイテムを置かず、発見そのものをイベントとして見せる。
+      if (room.id === "torture-room" && state.gameDay === 2) {
+        const header = makeElement("section", "route-header");
+        header.append(
+          makeElement("p", "route-kicker", "SECRET AREA / DISCOVERED"),
+          makeElement("h2", "route-title", room.name),
+          makeElement("p", "route-copy", room.subtitle)
+        );
+
+        if (room.image) {
+          const image = makeElement("img", "torture-discovery-image");
+          image.src = room.image;
+          image.alt = "拷問部屋";
+          image.loading = "eager";
+          header.append(image);
+        }
+
+        const alert = makeElement(
+          "p",
+          "torture-alert",
+          "やばい部屋をみつけてしまった。皆んなに知らせなきゃ！！！"
+        );
+        header.append(alert);
+
+        const returnButton = makeElement("button", "primary-button", "衣裳室へ戻る");
+        returnButton.type = "button";
+        returnButton.addEventListener("click", function () {
+          setRoute(backTarget);
+        });
+        header.append(returnButton);
+
+        el.arrivalPage.append(header);
+        return;
+      }
 
       const header = makeElement("section", "route-header");
       header.append(

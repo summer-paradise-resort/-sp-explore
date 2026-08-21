@@ -605,6 +605,11 @@
       font-size: 10px;
       line-height: 1.5;
     }
+    body:not(.debug-admin) .debug-launch,
+    body:not(.debug-admin) .debug-panel {
+      display: none !important;
+    }
+
     .debug-launch {
       position: fixed;
       z-index: 139;
@@ -1669,6 +1674,10 @@
     const urlTestDay = Number(urlParams.get("day") || 1);
     const urlIsAdmin = urlParams.get("admin") === TEST_ADMIN_TOKEN;
 
+    // 旧版TEST MODEで使っていたブラウザ保存値は、公開画面へ影響しないよう破棄する。
+    localStorage.removeItem("sp-explore-debug-mode");
+    localStorage.removeItem("sp-explore-debug-day");
+
     const state = {
       user: null,
       playerName: localStorage.getItem("sp-explore-player-name") || "",
@@ -1690,6 +1699,12 @@
       debugAdmin: urlIsAdmin,
       debugClaims: JSON.parse(localStorage.getItem("sp-explore-debug-claims") || "{}")
     };
+
+    if (state.debugAdmin) {
+      document.body.classList.add("debug-admin");
+    } else {
+      document.body.classList.remove("debug-admin");
+    }
 
     const el = {
       loadingCover: document.getElementById("loadingCover"),
@@ -2866,9 +2881,14 @@
 
 
     function syncDebugPanel() {
+      if (!state.debugAdmin) {
+        if (el.debugPanel && el.debugPanel.isConnected) el.debugPanel.remove();
+        if (el.debugLaunch && el.debugLaunch.isConnected) el.debugLaunch.remove();
+        return;
+      }
+
       el.debugDaySelect.value = String(state.debugDay || 1);
-      el.debugLaunch.hidden = !state.debugAdmin;
-      if (!state.debugAdmin) el.debugPanel.hidden = true;
+      el.debugLaunch.hidden = false;
       el.debugLaunch.textContent = state.debugMode ? "TEST MODE：DAY " + state.debugDay : "TEST MODE";
     }
 

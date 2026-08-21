@@ -1047,7 +1047,7 @@
         "arena": 1,            // 強奪のムレータ②
         "clinic": 2,           // 解毒薬①
         "wine-cellar": 3,      // 解毒薬②
-        "torture-room": 4,     // 革ベルトの拘束具
+        "costume-room": 4,     // 革ベルトの拘束具
         "bull-pen": 5,         // 代償のムレータ
         "study": 6,            // 青い木箱
         "dining-room": 7       // 喝采の金貨
@@ -1358,6 +1358,7 @@
         name: "拷問部屋",
         subtitle: "衣裳室のさらに奥",
         hidden: true,
+        minDay: 2,
         story: [
           "衣裳をかき分けると、その奥で冷たい石壁に触れた。",
           "壁を押すと、蝶番の音を殺した細い扉が開いていく。",
@@ -2211,7 +2212,12 @@
       });
       result.append(itemButton);
 
-      if (room.secretExit && (!room.secretExit.minDay || state.gameDay >= room.secretExit.minDay)) {
+      const secretTarget = room.secretExit ? rooms[room.secretExit.roomId] : null;
+      if (
+        room.secretExit &&
+        (!room.secretExit.minDay || state.gameDay >= room.secretExit.minDay) &&
+        (!secretTarget || !secretTarget.minDay || state.gameDay >= secretTarget.minDay)
+      ) {
         const secretButton = makeElement("button", "secondary-wide", room.secretExit.label);
         secretButton.type = "button";
         secretButton.addEventListener("click", function () {
@@ -2400,6 +2406,7 @@
         const third = getThird(context.firstId, context.secondId, context.thirdId);
         valid = Boolean(
           room && room.hidden &&
+          (!room.minDay || state.gameDay >= room.minDay) &&
           parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
           (!parent.secretExit.minDay || state.gameDay >= parent.secretExit.minDay) &&
           third && third.roomId === parent.id
@@ -2423,6 +2430,7 @@
           const third = getThird(context.firstId, context.secondId, context.thirdId);
           contextIsValid = Boolean(
             room && room.hidden &&
+            (!room.minDay || state.gameDay >= room.minDay) &&
             parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
             (!parent.secretExit.minDay || state.gameDay >= parent.secretExit.minDay) &&
             third && third.roomId === parent.id

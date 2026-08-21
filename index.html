@@ -1159,7 +1159,8 @@
         secretExit: {
           roomId: "torture-room",
           label: "衣裳をかき分け、さらに奥へ進む",
-          log: "衣裳室の隠し扉を見つけました。"
+          log: "衣裳室の隠し扉を見つけました。",
+          minDay: 2
         }
       },
       "study": {
@@ -2210,7 +2211,7 @@
       });
       result.append(itemButton);
 
-      if (room.secretExit) {
+      if (room.secretExit && (!room.secretExit.minDay || state.gameDay >= room.secretExit.minDay)) {
         const secretButton = makeElement("button", "secondary-wide", room.secretExit.label);
         secretButton.type = "button";
         secretButton.addEventListener("click", function () {
@@ -2400,6 +2401,7 @@
         valid = Boolean(
           room && room.hidden &&
           parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
+          (!parent.secretExit.minDay || state.gameDay >= parent.secretExit.minDay) &&
           third && third.roomId === parent.id
         );
         if (valid) {
@@ -2422,6 +2424,7 @@
           contextIsValid = Boolean(
             room && room.hidden &&
             parent && !parent.hidden && parent.secretExit && parent.secretExit.roomId === room.id &&
+            (!parent.secretExit.minDay || state.gameDay >= parent.secretExit.minDay) &&
             third && third.roomId === parent.id
           );
         }

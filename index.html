@@ -1147,13 +1147,13 @@
     }
 
     function getCountedDiscoverablesForDay(day) {
-      const discoverables = getDailyPool(day).slice();
+      const discoverables = getDailyPool(day).concat(getDayNotes(day));
       if (day === 2) discoverables.push(specialDiscoveries.tortureRoomFound);
       return discoverables;
     }
 
     function getAllDiscoverablesForDay(day) {
-      return getCountedDiscoverablesForDay(day).concat(getDayNotes(day));
+      return getCountedDiscoverablesForDay(day);
     }
 
     function allDailyItemsClaimed(day) {
@@ -1962,7 +1962,7 @@
         ? "第" + state.gameDay + "日目の探索完了"
         : (done ? "第" + state.gameDay + "日目のアイテムを取得済み" : "第" + state.gameDay + "日目の残り");
       el.dailyStatusNote.textContent = state.gameDay === 2
-        ? "本日の探索対象は8つ。見えている品だけが、すべてとは限りません。"
+        ? "本日の探索対象は9つ。見えている品だけが、すべてとは限りません。"
         : "本日の探索終了は 翌2:00（日本時間）です。";
 
       if (dayCleared) {
@@ -2224,7 +2224,7 @@
         : "最後の分岐へ戻る";
 
       // 2日目の拷問部屋は「アイテムなし」の特殊発見イベント。
-      // 発見情報そのものを8個目の探索対象としてFirebaseで一度だけ取得できる。
+      // 発見情報そのものを9個目の探索対象としてFirebaseで一度だけ取得できる。
       if (room.id === "torture-room" && state.gameDay === 2) {
         const discovery = specialDiscoveries.tortureRoomFound;
         const discoveryClaim = effectiveClaims()[discovery.id];
@@ -2882,7 +2882,11 @@
       }).map(function (room) {
         return room.name + "： " + room.dayItems[day].name;
       });
-      alert("第" + day + "日目の配置\n\n" + lines.concat(notes).join("\n"));
+      const specials = [];
+      if (day === 2) {
+        specials.push("衣裳室の隠し通路の先： 拷問部屋を発見（情報）");
+      }
+      alert("第" + day + "日目の配置\n\n" + lines.concat(notes, specials).join("\n"));
     }
 
     el.debugLaunch.addEventListener("click", function () {

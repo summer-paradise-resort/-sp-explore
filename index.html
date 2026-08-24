@@ -933,8 +933,8 @@
         id: "torture-room-discovery",
         name: "拷問部屋を発見",
         symbol: "!",
-        image: "",
-        text: "衣裳室の奥に隠された拷問部屋を発見した。スクリーンショットを撮って、皆んなに知らせてください。"
+        image: "hint-torture-room.jpeg",
+        text: "見てはいけない部屋を発見してしまった！みんなに知らせないと！"
       },
       muletaBack: {
         id: "muleta-back-profile",
@@ -1020,7 +1020,7 @@
         "arena": [normalItem(explorationItems.applauseCoin, 1, 10)]
       },
       2: {
-        "costume-room": [hintItem(hintItems.tortureRoomFound, 2, 1)],
+        "costume-room": [],
         "clinic": [
           normalItem(coreItems.costMuleta, 2, 1),
           normalItem(explorationItems.applauseCoin, 2, 1)
@@ -1041,7 +1041,8 @@
         ],
         "bull-pen": [hintItem(namelessBullNotes[1], 2, 1)],
         "study": [normalItem(explorationItems.applauseCoin, 2, 4)],
-        "arena": [normalItem(explorationItems.matadorFanBadge, 2, 1)]
+        "arena": [normalItem(explorationItems.matadorFanBadge, 2, 1)],
+        "torture-room": [hintItem(hintItems.tortureRoomFound, 2, 1)]
       },
       3: {
         "costume-room": [normalItem(coreItems.costMuleta, 3, 1)],
@@ -2295,7 +2296,11 @@
           if (!ensureCanExplore()) return;
           const hiddenRoom = rooms[room.secretExit.roomId];
           const nextContext = secretContext(room.id, context.firstId, context.secondId, context.thirdId);
-          setRoute(arrivalRoute(hiddenRoom.id, nextContext));
+          if (room.id === "costume-room" && hiddenRoom.id === "torture-room" && state.gameDay === 2) {
+            setRoute(itemRoute(hiddenRoom.id, nextContext));
+          } else {
+            setRoute(arrivalRoute(hiddenRoom.id, nextContext));
+          }
           writeLog(state.playerName + "が" + room.secretExit.log, "secret", {
             locationId: hiddenRoom.id,
             parentLocationId: room.id
@@ -2377,7 +2382,13 @@
             discovery.append(makeElement("p", "route-copy", item.name));
           }
           if (item.text) {
-            discovery.append(makeElement("p", "route-copy", item.text));
+            discovery.append(
+              makeElement(
+                "p",
+                item.baseId === "torture-room-discovery" ? "torture-alert" : "route-copy",
+                item.text
+              )
+            );
           }
 
           const claimButton = makeElement(

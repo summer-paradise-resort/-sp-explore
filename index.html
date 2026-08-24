@@ -1956,6 +1956,10 @@
         });
     }
 
+    function hasClaimedHintToday() {
+      return hintClaimsByUserToday().length > 0;
+    }
+
     function normalClaimTimestampToday() {
       const claim = currentNormalClaimByUser();
       return claim && Number.isFinite(Number(claim.claimedAt))
@@ -2064,26 +2068,31 @@
         return;
       }
 
-      const hintBeforeNormal = normalDone && hadHintBeforeNormalToday();
-      const hintOnlyContinuation = normalDone && !hintBeforeNormal && hintLeft;
+      const hintDone = hasClaimedHintToday();
+      const hintBeforeNormal = normalDone && hintDone && hadHintBeforeNormalToday();
+      const bothDone = normalDone && hintDone;
 
-      if (normalDone && !hintOnlyContinuation) {
+      if (bothDone) {
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
           makeElement("div", "ended-mark", "◇"),
           makeElement("h2", "", "本日の探索は終了しました"),
-          makeElement(
-            "p",
-            "",
-            hintBeforeNormal
-              ? "重要ヒントを先に取得したあと通常アイテムを1個取得したため、本日の探索は終了です。"
-              : "通常アイテムは取得済みで、未発見の重要ヒントもありません。次の探索日までお待ちください。"
-          )
+          makeElement("p", "", "本日の通常アイテム1個と重要ヒント1個を取得しました。")
         );
         return;
       }
 
-      el.journeyIntro.className = "journey-card";
+      if (normalDone && !hintLeft) {
+        el.journeyIntro.className = "ended-panel";
+        el.journeyIntro.append(
+          makeElement("div", "ended-mark", "◇"),
+          makeElement("h2", "", "本日の探索は終了しました"),
+          makeElement("p", "", "通常アイテムは取得済みで、未発見の重要ヒントもありません。")
+        );
+        return;
+      }
+
+      const hintOnlyContinuation = normalDone && !hintDone && hintLeft;
       el.journeyIntro.append(
         makeElement("p", "choice-step", "DAY " + state.gameDay + " / BEGIN EXPLORATION"),
         makeElement("h2", "", hintOnlyContinuation ? "重要ヒントを探しに行く" : "探索へ行く"),
@@ -2092,7 +2101,7 @@
           "",
           hintOnlyContinuation
             ? "通常アイテムは本日すでに1個取得しています。これ以降、他の通常アイテムは取得できません。未発見の重要ヒントだけを探して探索を続けられます。"
-            : "通常アイテムは1人1個まで。重要ヒントを先に取得した場合も探索は継続できます。その後に通常アイテムを1個取得すると、その日の探索は終了します。"
+            : "通常アイテムは1人1個、重要ヒントも1人1個まで。重要ヒントを先に取得した場合は、通常アイテムを1個取得するまで探索を継続できます。"
         )
       );
       const start = makeElement("button", "primary-button", "探索へ行く");
@@ -2223,12 +2232,13 @@
       state.periodStart = schedule.periodStart;
       state.gameDay = schedule.day;
       state.gameWindowOpen = true;
-      if (hasClaimedToday() && !canContinueForHintsAfterNormal()) {
-        showToast(
-          hadHintBeforeNormalToday()
-            ? "重要ヒント取得後に通常アイテムを取得したため、本日の探索は終了しています。"
-            : "本日の通常アイテムは取得済みで、未発見の重要ヒントもありません。"
-        );
+      if (hasClaimedToday() && hasClaimedHintToday()) {
+        showToast("本日の通常アイテムと重要ヒントは取得済みです。");
+        setRoute("explore");
+        return false;
+      }
+      if (hasClaimedToday() && !hasUnclaimedHint(state.gameDay)) {
+        showToast("本日の通常アイテムは取得済みで、未発見の重要ヒントもありません。");
         setRoute("explore");
         return false;
       }
@@ -2423,9 +2433,11 @@
         return !effectiveClaims()[item.id];
       });
       const normalAlreadyTaken = hasClaimedToday();
+      const hintAlreadyTaken = hasClaimedHintToday();
       const hintOnlyMode = normalAlreadyTaken && canContinueForHintsAfterNormal();
       const nextArrivalItem = arrivalItems.find(function (item) {
-        return hintOnlyMode ? item.type === "hint" : (item.type === "hint" || !normalAlreadyTaken);
+        if (item.type === "hint") return !hintAlreadyTaken;
+        return !normalAlreadyTaken;
       }) || null;
       const mustTakeHere = Boolean(nextArrivalItem);
 
@@ -2479,9 +2491,11 @@
         return !effectiveClaims()[item.id];
       });
       const normalAlreadyTaken = hasClaimedToday();
+      const hintAlreadyTaken = hasClaimedHintToday();
       const hintOnlyMode = normalAlreadyTaken && canContinueForHintsAfterNormal();
       const item = unclaimed.find(function (candidate) {
-        return hintOnlyMode ? candidate.type === "hint" : (candidate.type === "hint" || !normalAlreadyTaken);
+        if (candidate.type === "hint") return !hintAlreadyTaken;
+        return !normalAlreadyTaken;
       }) || null;
 
       result.append(
@@ -2507,7 +2521,9 @@
           )
         );
       } else {
-        const canClaim = item.type === "hint" || !normalAlreadyTaken;
+        const canClaim = item.type === "hint"
+          ? !hintAlreadyTaken
+          : !normalAlreadyTaken;
 
         if (!canClaim) {
           clearItemLock();

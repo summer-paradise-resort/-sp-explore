@@ -683,8 +683,8 @@
       <section class="view active" id="exploreView" data-view="explore">
         <div id="exploreHome">
           <section class="daily-panel" aria-live="polite">
-            <div><strong id="dailyStatusTitle">本日の取得数</strong><small id="dailyStatusNote">各日22:45〜翌2:00（日本時間）のみ探索できます。</small></div>
-            <span class="daily-count" id="dailyCount">0 / 1</span>
+            <div><strong id="dailyStatusTitle">未発見アイテム</strong></div>
+            <span class="daily-count" id="dailyCount">—</span>
           </section>
           <section class="journey-card" id="journeyIntro">
             <p class="choice-step">BEGIN EXPLORATION</p>
@@ -1725,7 +1725,6 @@
       fullLog: document.getElementById("fullLog"),
       exploreHome: document.getElementById("exploreHome"),
       dailyStatusTitle: document.getElementById("dailyStatusTitle"),
-      dailyStatusNote: document.getElementById("dailyStatusNote"),
       dailyCount: document.getElementById("dailyCount"),
       journeyIntro: document.getElementById("journeyIntro"),
       journeyPage: document.getElementById("journeyPage"),
@@ -1970,14 +1969,18 @@
       const normalDone = hasClaimedToday();
       const dayCleared = allDailyItemsClaimed(schedule.day);
       const hintLeft = hasUnclaimedHint(schedule.day);
+      const discoverables = getAllDiscoverablesForDay(schedule.day);
+      const totalDiscoverables = discoverables.length;
+      const remainingDiscoverables = discoverables.filter(function (item) {
+        return !effectiveClaims()[item.id];
+      }).length;
 
-      el.dailyCount.textContent = normalDone ? "1 / 1" : "0 / 1";
+      el.dailyStatusTitle.textContent = "未発見アイテム";
+      el.dailyCount.textContent = remainingDiscoverables + " / " + totalDiscoverables;
       el.journeyIntro.replaceChildren();
 
       if (schedule.phase === "waiting") {
-        el.dailyStatusTitle.textContent = "探索開始前";
-        el.dailyStatusNote.textContent =
-          "第" + schedule.day + "日目は " + formatDateTime(schedule.start) + "〜翌2:00（日本時間）です。";
+        el.dailyStatusTitle.textContent = "未発見アイテム";
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
           makeElement("div", "ended-mark", "◇"),
@@ -1988,8 +1991,7 @@
       }
 
       if (schedule.phase === "finished") {
-        el.dailyStatusTitle.textContent = "探索期間終了";
-        el.dailyStatusNote.textContent = "7日目の探索は終了しました。";
+        el.dailyStatusTitle.textContent = "未発見アイテム";
         el.dailyCount.textContent = "—";
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
@@ -1999,15 +2001,6 @@
         );
         return;
       }
-
-      el.dailyStatusTitle.textContent = normalDone
-        ? "通常アイテムは取得済み"
-        : "第" + state.gameDay + "日目の通常アイテム";
-      el.dailyStatusNote.textContent = normalDone
-        ? (hintLeft
-          ? "通常アイテムは1人1個まで。重要ヒントは引き続き追加で取得できます。"
-          : "通常アイテムは取得済みです。重要ヒントが残っていれば追加で取得できます。")
-        : "通常アイテムは1人1個まで。重要ヒントは取得枠を消費しません。探索終了は翌2:00です。";
 
       if (dayCleared) {
         el.journeyIntro.className = "ended-panel";

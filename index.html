@@ -2757,7 +2757,30 @@
     }
 
     async function claimItem(room, item, button) {
-      if (!ensureCanExplore() || state.claimInProgress) return;
+      if (state.claimInProgress) return;
+
+      // 重要ヒントは通常アイテム用の dailySlot 読み込みに依存させない。
+      // DAY2の拷問部屋など、重要ヒントの取得ボタンが無反応になるのを防ぐ。
+      if (item.type === "hint") {
+        if (!state.user || !state.playerName || !state.playerKey) {
+          showNameModal(false);
+          return;
+        }
+        if (!state.claimsLoaded) {
+          showToast("重要ヒントの取得状況を確認しています。数秒待ってからもう一度お試しください。");
+          return;
+        }
+        const schedule = getScheduleState(effectiveNow());
+        if (schedule.phase !== "open") {
+          showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
+          return;
+        }
+        state.periodStart = schedule.periodStart;
+        state.gameDay = schedule.day;
+        state.gameWindowOpen = true;
+      } else {
+        if (!ensureCanExplore()) return;
+      }
 
       if (item.type !== "hint" && hasClaimedToday()) {
         showToast("通常アイテムは1人1日1個までです。重要ヒントは追加で取得できます。");
@@ -2843,10 +2866,15 @@
             : "「" + item.name + "」を入手しました。"
         );
         clearItemLock();
-        renderExploreHome();
-        handleRoute(false);
+        if (item.type === "hint") {
+          setRoute("explore");
+        } else {
+          renderExploreHome();
+          handleRoute(false);
+        }
       } catch (error) {
         handleError(error);
+        showToast("取得に失敗しました。画面上部の「要確認」の内容を確認してください。");
       } finally {
         state.claimInProgress = false;
         button.disabled = false;

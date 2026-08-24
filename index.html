@@ -1670,7 +1670,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const urlTestMode = urlParams.get("test") === "1";
     const urlTestDay = Number(urlParams.get("day") || 1);
-    const urlIsAdmin = urlParams.get("admin") === TEST_ADMIN_TOKEN;
+    const urlIsAdmin = urlTestMode || urlParams.get("admin") === TEST_ADMIN_TOKEN;
 
     // 旧版TEST MODEで使っていたブラウザ保存値は、公開画面へ影響しないよう破棄する。
     localStorage.removeItem("sp-explore-debug-mode");
@@ -2882,7 +2882,7 @@
 
       el.debugDaySelect.value = String(state.debugDay || 1);
       el.debugLaunch.hidden = false;
-      el.debugLaunch.textContent = state.debugMode ? "TEST MODE：DAY " + state.debugDay : "TEST MODE";
+      el.debugLaunch.textContent = state.debugMode ? "⚙ TEST管理：DAY " + state.debugDay : "⚙ TEST管理";
     }
 
     function enableDebugDay(day) {

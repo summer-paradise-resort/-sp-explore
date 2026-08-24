@@ -1780,25 +1780,7 @@
     }
 
     function effectiveClaims() {
-      const merged = Object.assign({}, state.claims || {});
-
-      // 重要ヒントは dailySlots / claims の通常アイテム制約から完全に分離する。
-      // 全員に配信される行動ログの itemId を「発見済み」判定にも利用する。
-      (state.logs || []).forEach(function (entry) {
-        if (!entry || entry.type !== "hint" || !entry.itemId) return;
-        if (!merged[entry.itemId]) {
-          merged[entry.itemId] = {
-            itemName: entry.itemName || "",
-            playerKey: entry.playerKey || "",
-            playerName: entry.playerName || "",
-            claimedAt: entry.timestamp || 0,
-            claimType: "hint",
-            locationId: entry.locationId || ""
-          };
-        }
-      });
-
-      return merged;
+      return state.claims;
     }
 
     function saveDebugClaims() {
@@ -1919,11 +1901,13 @@
     }
 
     function friendlyError(error) {
-      const code = error && error.code ? error.code : "";
-      if (code.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
-      if (code.includes("permission-denied")) return "Firebaseのルール更新が必要です。新しい database-rules.json の内容を公開してください。";
-      if (code.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。";
-      if (code.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
+      const code = String(error && error.code ? error.code : "").toLowerCase();
+      const message = String(error && error.message ? error.message : "").toLowerCase();
+      const detail = code + " " + message;
+      if (detail.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
+      if (detail.includes("permission-denied") || detail.includes("permission_denied")) return "Firebaseの書き込み権限で拒否されています。データベースルールの確認が必要です。";
+      if (detail.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。";
+      if (detail.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
       return "接続中に問題が起きました。少し待って再読み込みしてください。";
     }
 
@@ -1933,13 +1917,26 @@
       showNotice(friendlyError(error));
     }
 
+    function configuredHintIds() {
+      const ids = new Set();
+      Object.values(dailyRoomItems || {}).forEach(function (roomsForDay) {
+        Object.values(roomsForDay || {}).forEach(function (items) {
+          (items || []).forEach(function (item) {
+            if (item && item.type === "hint" && item.id) ids.add(item.id);
+          });
+        });
+      });
+      return ids;
+    }
+
     function currentNormalClaimByUser() {
       if (!state.playerKey) return null;
+      const hintIds = configuredHintIds();
       const source = effectiveClaims();
       return Object.values(source).find(function (claim) {
         return claim &&
           claim.playerKey === state.playerKey &&
-          claim.claimType !== "hint" &&
+          !hintIds.has(Object.keys(source).find(function (key) { return source[key] === claim; })) &&
           Number(claim.periodStart || 0) === Number(state.periodStart);
       }) || null;
     }
@@ -2822,44 +2819,34 @@
         }
 
         const now = serverNow();
+        const claimRef = refPath("claims/" + item.id);
+        const claim = {
+          uid: state.user.uid,
+          playerKey: state.playerKey,
+          playerName: state.playerName,
+          itemName: item.name,
+          locationId: room.id,
+          claimedAt: now,
+          periodStart: state.periodStart,
+          gameDay: "DAY-" + state.gameDay
+        };
 
-        // 通常アイテムだけ claims に排他的取得を書き込む。
-        // 重要ヒントは通常取得枠とは独立させ、全員共有の logs で発見済みを同期する。
-        if (item.type !== "hint") {
-          const claimRef = refPath("claims/" + item.id);
-          const claim = {
-            uid: state.user.uid,
-            playerKey: state.playerKey,
-            playerName: state.playerName,
-            itemName: item.name,
-            locationId: room.id,
-            claimedAt: now,
-            periodStart: state.periodStart,
-            gameDay: "DAY-" + state.gameDay,
-            claimType: "normal"
-          };
+        const result = await runTransaction(claimRef, function (current) {
+          return current === null ? claim : undefined;
+        }, { applyLocally: false });
 
-          const result = await runTransaction(claimRef, function (current) {
-            return current === null ? claim : undefined;
-          }, { applyLocally: false });
-
-          if (!result.committed) {
-            state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
-            showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
-            clearItemLock();
-            handleRoute(false);
-            return;
-          }
-        } else {
-          const alreadyFound = (state.logs || []).some(function (entry) {
-            return entry && entry.type === "hint" && entry.itemId === item.id;
-          });
-          if (alreadyFound) {
+        if (!result.committed) {
+          state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
+          if (item.type === "hint") {
             showToast("この重要ヒントはすでに発見されています。");
             clearItemLock();
             setRoute("explore");
-            return;
+          } else {
+            showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
+            clearItemLock();
+            handleRoute(false);
           }
+          return;
         }
 
         if (slot) {
@@ -2878,17 +2865,15 @@
           locationId: room.id,
           locationName: room.name,
           acquiredAt: now,
-          periodStart: state.periodStart,
-          itemType: item.type === "hint" ? "hint" : "normal"
+          periodStart: state.periodStart
         };
         updates["logs/" + logKey] = {
           uid: state.user.uid,
           playerKey: state.playerKey,
           playerName: state.playerName,
           message: state.playerName + "が「" + item.name + "」を入手しました。",
-          type: item.type === "hint" ? "hint" : "item",
+          type: "item",
           itemId: item.id,
-          itemName: item.name,
           locationId: room.id,
           timestamp: now
         };

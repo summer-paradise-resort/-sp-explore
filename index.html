@@ -1941,8 +1941,44 @@
       }) || null;
     }
 
+    function hintClaimsByUserToday() {
+      const hintIds = configuredHintIds();
+      return Object.entries(state.inventory || {})
+        .filter(function (entry) {
+          const itemId = entry[0];
+          const item = entry[1];
+          return hintIds.has(itemId) &&
+            item &&
+            Number(item.periodStart || 0) === Number(state.periodStart);
+        })
+        .map(function (entry) {
+          return Object.assign({ itemId: entry[0] }, entry[1]);
+        });
+    }
+
+    function normalClaimTimestampToday() {
+      const claim = currentNormalClaimByUser();
+      return claim && Number.isFinite(Number(claim.claimedAt))
+        ? Number(claim.claimedAt)
+        : 0;
+    }
+
+    function hadHintBeforeNormalToday() {
+      const normalAt = normalClaimTimestampToday();
+      if (!normalAt) return false;
+      return hintClaimsByUserToday().some(function (hint) {
+        return Number(hint.acquiredAt || 0) > 0 &&
+          Number(hint.acquiredAt || 0) < normalAt;
+      });
+    }
+
+    function canContinueForHintsAfterNormal() {
+      return hasClaimedToday() &&
+        !hadHintBeforeNormalToday() &&
+        hasUnclaimedHint(state.gameDay);
+    }
+
     function hasClaimedToday() {
-      if (state.debugMode) return Boolean(currentNormalClaimByUser());
       const slotDone = state.dailySlot &&
         Number(state.dailySlot.periodStart || 0) === Number(state.periodStart) &&
         state.dailySlot.status === "claimed";
@@ -2028,12 +2064,21 @@
         return;
       }
 
-      if (normalDone && !hintLeft) {
+      const hintBeforeNormal = normalDone && hadHintBeforeNormalToday();
+      const hintOnlyContinuation = normalDone && !hintBeforeNormal && hintLeft;
+
+      if (normalDone && !hintOnlyContinuation) {
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
           makeElement("div", "ended-mark", "◇"),
-          makeElement("h2", "", "本日の通常アイテムは取得済みです"),
-          makeElement("p", "", "重要ヒントもすでにすべて発見されています。次の日の22:45になると、通常アイテムを再び1個取得できます。")
+          makeElement("h2", "", "本日の探索は終了しました"),
+          makeElement(
+            "p",
+            "",
+            hintBeforeNormal
+              ? "重要ヒントを先に取得したあと通常アイテムを1個取得したため、本日の探索は終了です。"
+              : "通常アイテムは取得済みで、未発見の重要ヒントもありません。次の探索日までお待ちください。"
+          )
         );
         return;
       }
@@ -2041,10 +2086,14 @@
       el.journeyIntro.className = "journey-card";
       el.journeyIntro.append(
         makeElement("p", "choice-step", "DAY " + state.gameDay + " / BEGIN EXPLORATION"),
-        makeElement("h2", "", normalDone ? "重要ヒントを探しに行く" : "探索へ行く"),
-        makeElement("p", "", normalDone
-          ? "通常アイテムの取得枠は使用済みです。ただし重要ヒントは別枠です。館内を引き続き探索できます。"
-          : "通常アイテムは1人1個まで。重要ヒントを見つけた場合は、通常アイテムとは別に追加で取得できます。")
+        makeElement("h2", "", hintOnlyContinuation ? "重要ヒントを探しに行く" : "探索へ行く"),
+        makeElement(
+          "p",
+          "",
+          hintOnlyContinuation
+            ? "通常アイテムは本日すでに1個取得しています。これ以降、他の通常アイテムは取得できません。未発見の重要ヒントだけを探して探索を続けられます。"
+            : "通常アイテムは1人1個まで。重要ヒントを先に取得した場合も探索は継続できます。その後に通常アイテムを1個取得すると、その日の探索は終了します。"
+        )
       );
       const start = makeElement("button", "primary-button", "探索へ行く");
       start.type = "button";
@@ -2174,6 +2223,15 @@
       state.periodStart = schedule.periodStart;
       state.gameDay = schedule.day;
       state.gameWindowOpen = true;
+      if (hasClaimedToday() && !canContinueForHintsAfterNormal()) {
+        showToast(
+          hadHintBeforeNormalToday()
+            ? "重要ヒント取得後に通常アイテムを取得したため、本日の探索は終了しています。"
+            : "本日の通常アイテムは取得済みで、未発見の重要ヒントもありません。"
+        );
+        setRoute("explore");
+        return false;
+      }
       if (allDailyItemsClaimed(state.gameDay)) {
         showToast("これ以上はもう何もなさそうだ。");
         setRoute("explore");
@@ -2364,11 +2422,12 @@
       const arrivalItems = getActiveItems(room).filter(function (item) {
         return !effectiveClaims()[item.id];
       });
-      const nextArrivalItem = arrivalItems[0] || null;
-      const mustTakeHere = Boolean(
-        nextArrivalItem &&
-        (nextArrivalItem.type === "hint" || !hasClaimedToday())
-      );
+      const normalAlreadyTaken = hasClaimedToday();
+      const hintOnlyMode = normalAlreadyTaken && canContinueForHintsAfterNormal();
+      const nextArrivalItem = arrivalItems.find(function (item) {
+        return hintOnlyMode ? item.type === "hint" : (item.type === "hint" || !normalAlreadyTaken);
+      }) || null;
+      const mustTakeHere = Boolean(nextArrivalItem);
 
       if (!mustTakeHere) {
         const restart = makeElement("button", "secondary-wide", "別の道へ戻って探索を続ける");
@@ -2419,7 +2478,11 @@
       const unclaimed = roomItems.filter(function (item) {
         return !effectiveClaims()[item.id];
       });
-      const item = unclaimed[0] || null;
+      const normalAlreadyTaken = hasClaimedToday();
+      const hintOnlyMode = normalAlreadyTaken && canContinueForHintsAfterNormal();
+      const item = unclaimed.find(function (candidate) {
+        return hintOnlyMode ? candidate.type === "hint" : (candidate.type === "hint" || !normalAlreadyTaken);
+      }) || null;
 
       result.append(
         makeElement("p", "route-kicker", room.name),
@@ -2431,9 +2494,20 @@
         result.append(makeElement("div", "velvet-empty", "これ以上はもう何もなさそうだ。"));
       } else if (!item) {
         clearItemLock();
-        result.append(makeElement("div", "velvet-empty", "赤いベルベットの上には、もう何も残されていない"));
+        const hasUnclaimedNormalHere = unclaimed.some(function (candidate) {
+          return candidate.type !== "hint";
+        });
+        result.append(
+          makeElement(
+            "div",
+            "velvet-empty",
+            hasUnclaimedNormalHere && normalAlreadyTaken
+              ? "通常アイテムは本日すでに取得済みです。この部屋の通常アイテムは取得できません。"
+              : "赤いベルベットの上には、もう何も残されていない"
+          )
+        );
       } else {
-        const canClaim = item.type === "hint" || !hasClaimedToday();
+        const canClaim = item.type === "hint" || !normalAlreadyTaken;
 
         if (!canClaim) {
           clearItemLock();
@@ -2441,7 +2515,7 @@
             makeElement(
               "div",
               "velvet-empty",
-              "本日の通常アイテムはすでに取得済みです。この部屋には、まだ何かが残されているようだ。"
+              "通常アイテムは本日すでに取得済みです。"
             )
           );
         } else {
@@ -2491,9 +2565,7 @@
         }
       }
 
-      const stillMustClaim = Boolean(
-        item && (item.type === "hint" || !hasClaimedToday())
-      );
+      const stillMustClaim = Boolean(item);
 
       if (!stillMustClaim) {
         const back = makeElement("button", "secondary-wide", "別の道へ戻って探索を続ける");
@@ -2886,10 +2958,12 @@
         );
         clearItemLock();
         if (item.type === "hint") {
+          // 重要ヒントは通常アイテム枠を消費しない。
           setRoute("explore");
         } else {
-          renderExploreHome();
-          handleRoute(false);
+          // 通常アイテムは1日1個まで。
+          // 未発見の重要ヒントが残っていれば、その探索だけ続行できる。
+          setRoute("explore");
         }
       } catch (error) {
         handleError(error);

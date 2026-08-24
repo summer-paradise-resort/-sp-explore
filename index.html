@@ -2073,9 +2073,26 @@
       return button;
     }
 
-    function lockItemPage(room, context) {
-      // 1部屋に複数アイテムを置けるため、発見後も別の道へ戻れる。
-      clearItemLock();
+    function lockItemPage(room, context, item) {
+      if (!item) {
+        clearItemLock();
+        return;
+      }
+
+      // 重要ヒントは通常アイテム取得後でも必ず取得対象。
+      // 通常アイテムは、まだ本日の取得枠を使っていない場合だけロックする。
+      const canClaim = item.type === "hint" || !hasClaimedToday();
+      if (!canClaim) {
+        clearItemLock();
+        return;
+      }
+
+      const route = "#" + itemRoute(room.id, context);
+      state.lockedItemRoute = route;
+      state.lockedItemId = item.id;
+      sessionStorage.setItem("sp-explore-locked-item-route", route);
+      sessionStorage.setItem("sp-explore-locked-item-id", item.id);
+      document.body.classList.add("item-locked");
     }
 
     function clearItemLock() {
@@ -2091,7 +2108,16 @@
         document.body.classList.remove("item-locked");
         return;
       }
-      if (hasClaimedToday() || effectiveClaims()[state.lockedItemId]) {
+      if (effectiveClaims()[state.lockedItemId]) {
+        clearItemLock();
+        return;
+      }
+
+      const activeLockedItem = Object.values(dailyRoomItems[state.gameDay] || {})
+        .flat()
+        .find(function (item) { return item.id === state.lockedItemId; });
+
+      if (activeLockedItem && activeLockedItem.type !== "hint" && hasClaimedToday()) {
         clearItemLock();
         return;
       }
@@ -2309,14 +2335,28 @@
         result.append(secretButton);
       }
 
-      const restart = makeElement("button", "secondary-wide", "品を取らず、別の道へ戻る");
-      restart.type = "button";
-      restart.addEventListener("click", function () {
-        setRoute("path/1");
+      const arrivalItems = getActiveItems(room).filter(function (item) {
+        return !effectiveClaims()[item.id];
       });
-      result.append(restart);
+      const nextArrivalItem = arrivalItems[0] || null;
+      const mustTakeHere = Boolean(
+        nextArrivalItem &&
+        (nextArrivalItem.type === "hint" || !hasClaimedToday())
+      );
 
-      el.arrivalPage.append(makeBackButton(backLabel, backTarget), header, result);
+      if (!mustTakeHere) {
+        const restart = makeElement("button", "secondary-wide", "別の道へ戻って探索を続ける");
+        restart.type = "button";
+        restart.addEventListener("click", function () {
+          setRoute("path/1");
+        });
+        result.append(restart);
+        el.arrivalPage.append(makeBackButton(backLabel, backTarget), header, result);
+      } else {
+        const lockNote = makeElement("p", "choice-note", "この部屋に残されたものを確認するまで、前の道へは戻れません。");
+        result.append(lockNote);
+        el.arrivalPage.append(header, result);
+      }
     }
 
     function makeItemVisual(item) {
@@ -2353,6 +2393,7 @@
       const unclaimed = roomItems.filter(function (item) {
         return !effectiveClaims()[item.id];
       });
+      const item = unclaimed[0] || null;
 
       result.append(
         makeElement("p", "route-kicker", room.name),
@@ -2360,19 +2401,30 @@
       );
 
       if (!roomItems.length) {
+        clearItemLock();
         result.append(makeElement("div", "velvet-empty", "これ以上はもう何もなさそうだ。"));
-      } else if (!unclaimed.length) {
+      } else if (!item) {
+        clearItemLock();
         result.append(makeElement("div", "velvet-empty", "赤いベルベットの上には、もう何も残されていない"));
       } else {
-        unclaimed.forEach(function (item, index) {
-          const discovery = makeElement("div", "item-discovery");
-          if (index > 0) {
-            const divider = makeElement("div", "");
-            divider.style.borderTop = "1px solid var(--line)";
-            divider.style.margin = "24px 0 6px";
-            discovery.append(divider);
-          }
+        const canClaim = item.type === "hint" || !hasClaimedToday();
 
+        if (!canClaim) {
+          clearItemLock();
+          result.append(
+            makeElement(
+              "div",
+              "velvet-empty",
+              "本日の通常アイテムはすでに取得済みです。この部屋には、まだ何かが残されているようだ。"
+            )
+          );
+        } else {
+          // 配置表の上から順に1つだけ表示。
+          // 先に到着した参加者が先頭のアイテムを取得し、
+          // 取得済みになった後、次の参加者には次のアイテムが表示される。
+          lockItemPage(room, context, item);
+
+          const discovery = makeElement("div", "item-discovery");
           discovery.append(
             makeElement("p", "find-label", item.type === "hint" ? "重要ヒントを見つけた" : "見つけたもの"),
             makeItemVisual(item)
@@ -2397,29 +2449,37 @@
             item.type === "hint" ? "この重要ヒントを取得する" : "このアイテムを入手する"
           );
           claimButton.type = "button";
-
-          if (item.type !== "hint" && hasClaimedToday()) {
-            claimButton.disabled = true;
-            claimButton.textContent = "通常アイテムは本日取得済み";
-          } else {
-            claimButton.addEventListener("click", function () {
-              claimItem(room, item, claimButton);
-            });
-          }
+          claimButton.addEventListener("click", function () {
+            claimItem(room, item, claimButton);
+          });
 
           discovery.append(claimButton);
           result.append(discovery);
-        });
+          result.append(
+            makeElement(
+              "p",
+              "choice-note",
+              "このアイテムを取得するまで、前の道へは戻れません。"
+            )
+          );
+        }
       }
 
-      const back = makeElement("button", "secondary-wide", "別の道へ戻って探索を続ける");
-      back.type = "button";
-      back.addEventListener("click", function () {
-        setRoute("path/1");
-      });
-      result.append(back);
+      const stillMustClaim = Boolean(
+        item && (item.type === "hint" || !hasClaimedToday())
+      );
 
-      el.itemPage.append(makeBackButton(room.name + "へ戻る", backTarget), result);
+      if (!stillMustClaim) {
+        const back = makeElement("button", "secondary-wide", "別の道へ戻って探索を続ける");
+        back.type = "button";
+        back.addEventListener("click", function () {
+          setRoute("path/1");
+        });
+        result.append(back);
+        el.itemPage.append(makeBackButton(room.name + "へ戻る", backTarget), result);
+      } else {
+        el.itemPage.append(result);
+      }
     }
 
     function routeParts() {
@@ -2729,7 +2789,8 @@
 
         if (!result.committed) {
           state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
-          showToast("誰かが先に取得しました。別の道を探索できます。");
+          showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
+          clearItemLock();
           handleRoute(false);
           return;
         }
@@ -2770,6 +2831,7 @@
             ? "重要ヒント「" + item.name + "」を入手しました。スクリーンショットで皆んなに共有してください。"
             : "「" + item.name + "」を入手しました。"
         );
+        clearItemLock();
         renderExploreHome();
         handleRoute(false);
       } catch (error) {

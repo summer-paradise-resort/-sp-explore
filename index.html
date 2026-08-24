@@ -2299,24 +2299,35 @@
         makeElement("p", "", "室内の物語を読み終えたら、さらに奥へ進んでください。そこに残されている品を確かめられます。")
       );
 
-      const itemButton = makeElement("button", "primary-button", "さらに奥へ進む");
-      itemButton.type = "button";
-      itemButton.addEventListener("click", function () {
-        if (!ensureCanExplore()) return;
-        setRoute(itemRoute(room.id, context));
-        writeLog(state.playerName + "が「" + room.name + "」の奥を調べています。", "explore", {
-          locationId: room.id
-        }).catch(handleError);
-      });
-      result.append(itemButton);
-
       const secretTarget = room.secretExit ? rooms[room.secretExit.roomId] : null;
+      const isDay2CostumeSecret =
+        state.gameDay === 2 &&
+        room.id === "costume-room" &&
+        room.secretExit &&
+        room.secretExit.roomId === "torture-room";
+
+      if (!isDay2CostumeSecret) {
+        const itemButton = makeElement("button", "primary-button", "さらに奥へ進む");
+        itemButton.type = "button";
+        itemButton.addEventListener("click", function () {
+          if (!ensureCanExplore()) return;
+          setRoute(itemRoute(room.id, context));
+          writeLog(state.playerName + "が「" + room.name + "」の奥を調べています。", "explore", {
+            locationId: room.id
+          }).catch(handleError);
+        });
+        result.append(itemButton);
+      }
       if (
         room.secretExit &&
         (!room.secretExit.minDay || state.gameDay >= room.secretExit.minDay) &&
         (!secretTarget || !secretTarget.minDay || state.gameDay >= secretTarget.minDay)
       ) {
-        const secretButton = makeElement("button", "secondary-wide", room.secretExit.label);
+        const secretButton = makeElement(
+          "button",
+          isDay2CostumeSecret ? "primary-button" : "secondary-wide",
+          room.secretExit.label
+        );
         secretButton.type = "button";
         secretButton.addEventListener("click", function () {
           if (!ensureCanExplore()) return;

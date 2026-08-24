@@ -1780,7 +1780,25 @@
     }
 
     function effectiveClaims() {
-      return state.claims;
+      const merged = Object.assign({}, state.claims || {});
+
+      // 重要ヒントは dailySlots / claims の通常アイテム制約から完全に分離する。
+      // 全員に配信される行動ログの itemId を「発見済み」判定にも利用する。
+      (state.logs || []).forEach(function (entry) {
+        if (!entry || entry.type !== "hint" || !entry.itemId) return;
+        if (!merged[entry.itemId]) {
+          merged[entry.itemId] = {
+            itemName: entry.itemName || "",
+            playerKey: entry.playerKey || "",
+            playerName: entry.playerName || "",
+            claimedAt: entry.timestamp || 0,
+            claimType: "hint",
+            locationId: entry.locationId || ""
+          };
+        }
+      });
+
+      return merged;
     }
 
     function saveDebugClaims() {
@@ -2804,29 +2822,44 @@
         }
 
         const now = serverNow();
-        const claimRef = refPath("claims/" + item.id);
-        const claim = {
-          uid: state.user.uid,
-          playerKey: state.playerKey,
-          playerName: state.playerName,
-          itemName: item.name,
-          locationId: room.id,
-          claimedAt: now,
-          periodStart: state.periodStart,
-          gameDay: "DAY-" + state.gameDay,
-          claimType: item.type === "hint" ? "hint" : "normal"
-        };
 
-        const result = await runTransaction(claimRef, function (current) {
-          return current === null ? claim : undefined;
-        }, { applyLocally: false });
+        // 通常アイテムだけ claims に排他的取得を書き込む。
+        // 重要ヒントは通常取得枠とは独立させ、全員共有の logs で発見済みを同期する。
+        if (item.type !== "hint") {
+          const claimRef = refPath("claims/" + item.id);
+          const claim = {
+            uid: state.user.uid,
+            playerKey: state.playerKey,
+            playerName: state.playerName,
+            itemName: item.name,
+            locationId: room.id,
+            claimedAt: now,
+            periodStart: state.periodStart,
+            gameDay: "DAY-" + state.gameDay,
+            claimType: "normal"
+          };
 
-        if (!result.committed) {
-          state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
-          showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
-          clearItemLock();
-          handleRoute(false);
-          return;
+          const result = await runTransaction(claimRef, function (current) {
+            return current === null ? claim : undefined;
+          }, { applyLocally: false });
+
+          if (!result.committed) {
+            state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
+            showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
+            clearItemLock();
+            handleRoute(false);
+            return;
+          }
+        } else {
+          const alreadyFound = (state.logs || []).some(function (entry) {
+            return entry && entry.type === "hint" && entry.itemId === item.id;
+          });
+          if (alreadyFound) {
+            showToast("この重要ヒントはすでに発見されています。");
+            clearItemLock();
+            setRoute("explore");
+            return;
+          }
         }
 
         if (slot) {
@@ -2855,6 +2888,7 @@
           message: state.playerName + "が「" + item.name + "」を入手しました。",
           type: item.type === "hint" ? "hint" : "item",
           itemId: item.id,
+          itemName: item.name,
           locationId: room.id,
           timestamp: now
         };
@@ -3050,6 +3084,8 @@
       if (!window.confirm("TESTデータをすべて削除します。よろしいですか？")) return;
       try {
         await set(ref(db, "test"), null);
+        state.debugClaims = {};
+        localStorage.removeItem("sp-explore-debug-claims");
         clearItemLock();
         showToast("TESTデータをリセットしました。");
       } catch (error) {

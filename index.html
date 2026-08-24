@@ -683,7 +683,7 @@
       <section class="view active" id="exploreView" data-view="explore">
         <div id="exploreHome">
           <section class="daily-panel" aria-live="polite">
-            <div><strong id="dailyStatusTitle">未発見アイテム</strong></div>
+            <div><strong id="dailyStatusTitle">発見アイテム</strong></div>
             <span class="daily-count" id="dailyCount">—</span>
           </section>
           <section class="journey-card" id="journeyIntro">
@@ -1975,12 +1975,12 @@
         return !effectiveClaims()[item.id];
       }).length;
 
-      el.dailyStatusTitle.textContent = "未発見アイテム";
-      el.dailyCount.textContent = remainingDiscoverables + " / " + totalDiscoverables;
+      el.dailyStatusTitle.textContent = "発見アイテム";
+      el.dailyCount.textContent = (totalDiscoverables - remainingDiscoverables) + " / " + totalDiscoverables;
       el.journeyIntro.replaceChildren();
 
       if (schedule.phase === "waiting") {
-        el.dailyStatusTitle.textContent = "未発見アイテム";
+        el.dailyStatusTitle.textContent = "発見アイテム";
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(
           makeElement("div", "ended-mark", "◇"),
@@ -1991,7 +1991,7 @@
       }
 
       if (schedule.phase === "finished") {
-        el.dailyStatusTitle.textContent = "未発見アイテム";
+        el.dailyStatusTitle.textContent = "発見アイテム";
         el.dailyCount.textContent = "—";
         el.journeyIntro.className = "ended-panel";
         el.journeyIntro.append(

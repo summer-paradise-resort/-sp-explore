@@ -756,36 +756,18 @@
     <button class="debug-button" id="debugShowInventory" type="button">この日の配置を確認</button>
     <button class="debug-button danger" id="debugResetLocal" type="button">TESTデータをリセット</button>
     <button class="debug-button" id="debugExit" type="button">TEST MODEを終了</button>
-    <p class="debug-note">テストモードでは日時制限を無視し、Firebaseの test/ 以下だけを使用します。本番データには触れません。</p>
+    <p class="debug-note">テストモードでは日時制限を無視し、この端末内だけにTESTデータを保存します。本番データには触れません。</p>
   </aside>
 
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-    import {
-      getDatabase,
-      limitToLast,
-      onValue,
-      push,
-      query,
-      ref,
-      runTransaction,
-      set,
-      update
-    } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-database.js";
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDXTLPDdnuqGPmFgOdVKUM2DdOay-EMdnM",
-      authDomain: "sp-explore.firebaseapp.com",
-      databaseURL: "https://sp-explore-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "sp-explore",
-      storageBucket: "sp-explore.firebasestorage.app",
-      messagingSenderId: "591036776852",
-      appId: "1:591036776852:web:a7a7b75f2f1c9a015b8f81"
-    };
+    const SUPABASE_URL = "https://tkldsaomqezrlbsejkni.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_LQB2KQpcZhmsmQDnctbtmQ_-MsuxKfp";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
     const MINUTE = 60 * 1000;
     const HOUR = 60 * MINUTE;
@@ -1663,10 +1645,6 @@
       }
     ];
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getDatabase(app);
-
     const TEST_ADMIN_TOKEN = "m_rTRppVrYBXSja12ScsIyCq";
     const urlParams = new URLSearchParams(window.location.search);
     const urlTestMode = urlParams.get("test") === "1";
@@ -1678,7 +1656,7 @@
     localStorage.removeItem("sp-explore-debug-day");
 
     const state = {
-      user: null,
+      user: { uid: "supabase-anon" },
       playerName: localStorage.getItem("sp-explore-player-name") || "",
       playerKey: "",
       claims: {},
@@ -1780,7 +1758,7 @@
     }
 
     function effectiveClaims() {
-      return state.claims;
+      return state.debugMode ? (state.debugClaims || {}) : state.claims;
     }
 
     function saveDebugClaims() {
@@ -1788,20 +1766,12 @@
     }
 
     function dataRoot() {
-      return state.debugMode ? "test" : "";
+      return state.debugMode ? "test" : "prod";
     }
 
-    function dbPath(path) {
-      const rootName = dataRoot();
-      return rootName ? rootName + "/" + path : path;
-    }
-
-    function refPath(path) {
-      return ref(db, dbPath(path));
-    }
-
-    function rootPath() {
-      return state.debugMode ? ref(db, "test") : ref(db);
+    function gamePeriodStart(day) {
+      const entry = GAME_SCHEDULE.find(function (item) { return item.day === Number(day); });
+      return entry ? entry.start : 0;
     }
 
     function getScheduleState(timestamp) {
@@ -1901,13 +1871,9 @@
     }
 
     function friendlyError(error) {
-      const code = String(error && error.code ? error.code : "").toLowerCase();
-      const message = String(error && error.message ? error.message : "").toLowerCase();
-      const detail = code + " " + message;
-      if (detail.includes("operation-not-allowed")) return "匿名ログインが無効です。FirebaseのAuthenticationで「匿名」を有効にしてください。";
-      if (detail.includes("permission-denied") || detail.includes("permission_denied")) return "Firebaseの書き込み権限で拒否されています。データベースルールの確認が必要です。";
-      if (detail.includes("unauthorized-domain")) return "GitHub PagesのドメインがFirebaseで許可されていません。";
-      if (detail.includes("network-request-failed")) return "通信できませんでした。インターネット接続を確認してください。";
+      const message = String(error && error.message ? error.message : error || "").toLowerCase();
+      if (message.includes("failed to fetch") || message.includes("network")) return "Supabaseに通信できませんでした。インターネット接続を確認してください。";
+      if (message.includes("row-level security") || message.includes("permission")) return "Supabaseのアクセス権限で拒否されています。RLS設定を確認してください。";
       return "接続中に問題が起きました。少し待って再読み込みしてください。";
     }
 
@@ -2793,194 +2759,147 @@
     }
 
     async function writeLog(message, type, extra) {
-      if (!state.user || !state.playerName) return;
-      const newLogRef = push(refPath("logs"));
-      await set(newLogRef, Object.assign({
-        uid: state.user.uid,
-        playerKey: state.playerKey,
-        playerName: state.playerName,
-        message: message,
-        type: type,
-        timestamp: serverNow()
-      }, extra || {}));
+      // 行動ログの永続保存はアイテム取得時にSupabase側RPCで行います。
+      // 移動ログは画面動作を止めないよう、クライアント側だけで扱います。
+      if (!state.playerName) return;
+      if (state.debugMode) {
+        state.logs.unshift(Object.assign({
+          id: makeAttemptId(),
+          playerKey: state.playerKey,
+          playerName: state.playerName,
+          message: message,
+          type: type,
+          timestamp: serverNow()
+        }, extra || {}));
+        renderLogs();
+      }
     }
 
     function makeAttemptId() {
-      if (window.crypto && typeof window.crypto.randomUUID === "function") {
-        return window.crypto.randomUUID();
-      }
+      if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
       return String(serverNow()) + "-" + Math.random().toString(36).slice(2);
     }
 
-    async function reserveDailySlot(item) {
-      const slotRef = refPath("dailySlots/" + state.playerKey);
-      const periodStart = state.periodStart;
-      const attemptId = makeAttemptId();
-      const reservation = {
-        uid: state.user.uid,
-        playerKey: state.playerKey,
-        playerName: state.playerName,
-        itemId: item.id,
-        periodStart: periodStart,
-        status: "reserved",
-        attemptId: attemptId,
-        updatedAt: serverNow()
-      };
+    async function loadSupabaseData() {
+      if (!state.playerKey || state.debugMode) {
+        state.claimsLoaded = true;
+        state.dailySlotLoaded = true;
+        setConnection("online", state.debugMode ? "TEST" : "接続済み");
+        renderExploreHome();
+        renderInventory();
+        renderLogs();
+        return;
+      }
 
-      const result = await runTransaction(slotRef, function (current) {
-        if (!current || Number(current.periodStart || 0) < Number(periodStart)) {
-          return reservation;
-        }
+      const [claimsRes, invRes, dayRes, logsRes] = await Promise.all([
+        supabase.from("item_claims").select("item_id,item_name,item_type,player_key,player_name,location_id,location_name,game_day,claimed_at"),
+        supabase.from("inventories").select("item_id,item_name,item_type,item_symbol,item_image,location_id,location_name,game_day,acquired_at").eq("player_key", state.playerKey),
+        supabase.from("player_day_claims").select("game_day,normal_item_id,hint_item_id").eq("player_key", state.playerKey),
+        supabase.from("action_logs").select("id,player_key,player_name,message,log_type,item_id,location_id,created_at").order("created_at", { ascending: false }).limit(80)
+      ]);
 
-        if (Number(current.periodStart || 0) > Number(periodStart)) return;
+      for (const result of [claimsRes, invRes, dayRes, logsRes]) {
+        if (result.error) throw result.error;
+      }
 
-        // 同じ名前のプレイヤーは、BAND / Safari / 再読み込みをまたいでも
-        // 同じ探索日に一度取得したら再予約できない。
-        if (current.status === "claimed") return;
+      state.claims = {};
+      (claimsRes.data || []).forEach(function (row) {
+        state.claims[row.item_id] = {
+          playerKey: row.player_key, playerName: row.player_name, itemName: row.item_name,
+          locationId: row.location_id, locationName: row.location_name,
+          claimedAt: Date.parse(row.claimed_at), periodStart: gamePeriodStart(row.game_day), gameDay: "DAY-" + row.game_day,
+          itemType: row.item_type
+        };
+      });
 
-        if (current.status === "reserved") {
-          const previousClaim = state.claims[current.itemId];
-          if (
-            previousClaim &&
-            previousClaim.playerKey === state.playerKey &&
-            Number(previousClaim.periodStart || 0) === Number(periodStart)
-          ) {
-            return;
-          }
-        }
+      state.inventory = {};
+      (invRes.data || []).forEach(function (row) {
+        state.inventory[row.item_id] = {
+          name: row.item_name, symbol: row.item_symbol || "", image: row.item_image || "",
+          locationId: row.location_id, locationName: row.location_name, acquiredAt: Date.parse(row.acquired_at),
+          periodStart: gamePeriodStart(row.game_day), itemType: row.item_type
+        };
+      });
 
-        return reservation;
-      }, { applyLocally: false });
+      const dayRow = (dayRes.data || []).find(function (row) { return Number(row.game_day) === Number(state.gameDay); });
+      state.dailySlot = dayRow && dayRow.normal_item_id ? {
+        playerKey: state.playerKey, itemId: dayRow.normal_item_id, periodStart: gamePeriodStart(dayRow.game_day), status: "claimed"
+      } : null;
 
-      return {
-        committed: result.committed,
-        reservation: reservation,
-        slotRef: slotRef
-      };
+      state.logs = (logsRes.data || []).map(function (row) {
+        return { id: row.id, playerKey: row.player_key, playerName: row.player_name, message: row.message, type: row.log_type,
+          itemId: row.item_id, locationId: row.location_id, timestamp: Date.parse(row.created_at) };
+      });
+
+      state.claimsLoaded = true;
+      state.dailySlotLoaded = true;
+      setConnection("online", "リアルタイム");
+      showNotice("");
+      renderExploreHome();
+      renderInventory();
+      renderLogs();
+      handleRoute(false);
     }
 
     async function claimItem(room, item, button) {
       if (state.claimInProgress) return;
+      if (!state.playerName || !state.playerKey) { showNameModal(false); return; }
 
-      // 重要ヒントは通常アイテム用の dailySlot 読み込みに依存させない。
-      // DAY2の拷問部屋など、重要ヒントの取得ボタンが無反応になるのを防ぐ。
-      if (item.type === "hint") {
-        if (!state.user || !state.playerName || !state.playerKey) {
-          showNameModal(false);
-          return;
-        }
-        if (!state.claimsLoaded) {
-          showToast("重要ヒントの取得状況を確認しています。数秒待ってからもう一度お試しください。");
-          return;
-        }
-        const schedule = getScheduleState(effectiveNow());
-        if (schedule.phase !== "open") {
-          showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
-          return;
-        }
-        state.periodStart = schedule.periodStart;
-        state.gameDay = schedule.day;
-        state.gameWindowOpen = true;
-      } else {
-        if (!ensureCanExplore()) return;
+      const schedule = getScheduleState(effectiveNow());
+      if (schedule.phase !== "open") {
+        showToast(schedule.phase === "finished" ? "探索期間は終了しました。" : "探索時間は22:45〜翌2:00です。");
+        return;
       }
+      state.periodStart = schedule.periodStart;
+      state.gameDay = schedule.day;
+      state.gameWindowOpen = true;
 
       if (item.type !== "hint" && hasClaimedToday()) {
         showToast("通常アイテムは1人1日1個までです。重要ヒントは追加で取得できます。");
         return;
       }
+      if (item.type === "hint" && hasClaimedHintToday()) {
+        showToast("重要ヒントも1人1日1個までです。");
+        return;
+      }
+      if (effectiveClaims()[item.id]) {
+        showToast(item.type === "hint" ? "この重要ヒントはすでに発見されています。" : "誰かが先に取得しました。");
+        clearItemLock(); setRoute("explore"); return;
+      }
 
       state.claimInProgress = true;
-      button.disabled = true;
-      button.textContent = "確認中…";
-
+      button.disabled = true; button.textContent = "確認中…";
       try {
-        let slot = null;
-        if (item.type !== "hint") {
-          slot = await reserveDailySlot(item);
-          if (!slot.committed) {
-            showToast("本日の通常アイテムはすでに取得済みです。");
-            renderExploreHome();
-            handleRoute(false);
-            return;
-          }
-        }
-
-        const now = serverNow();
-        const claimRef = refPath("claims/" + item.id);
-        const claim = {
-          uid: state.user.uid,
-          playerKey: state.playerKey,
-          playerName: state.playerName,
-          itemName: item.name,
-          locationId: room.id,
-          claimedAt: now,
-          periodStart: state.periodStart,
-          gameDay: "DAY-" + state.gameDay
-        };
-
-        const result = await runTransaction(claimRef, function (current) {
-          return current === null ? claim : undefined;
-        }, { applyLocally: false });
-
-        if (!result.committed) {
-          state.claims[item.id] = result.snapshot.val() || { itemName: item.name };
-          if (item.type === "hint") {
-            showToast("この重要ヒントはすでに発見されています。");
-            clearItemLock();
-            setRoute("explore");
-          } else {
-            showToast("誰かが先に取得しました。次に残されたアイテムを確認します。");
-            clearItemLock();
-            handleRoute(false);
-          }
-          return;
-        }
-
-        if (slot) {
-          await set(slot.slotRef, Object.assign({}, slot.reservation, {
-            status: "claimed",
-            updatedAt: serverNow()
-          }));
-        }
-
-        const logKey = push(refPath("logs")).key;
-        const updates = {};
-        updates["inventories/" + state.playerKey + "/" + item.id] = {
-          name: item.name,
-          symbol: item.symbol,
-          image: item.image || "",
-          locationId: room.id,
-          locationName: room.name,
-          acquiredAt: now,
-          periodStart: state.periodStart
-        };
-        updates["logs/" + logKey] = {
-          uid: state.user.uid,
-          playerKey: state.playerKey,
-          playerName: state.playerName,
-          message: state.playerName + "が「" + item.name + "」を入手しました。",
-          type: "item",
-          itemId: item.id,
-          locationId: room.id,
-          timestamp: now
-        };
-        await update(rootPath(), updates);
-
-        showToast(
-          item.type === "hint"
-            ? "重要ヒント「" + item.name + "」を入手しました。スクリーンショットで皆んなに共有してください。"
-            : "「" + item.name + "」を入手しました。"
-        );
-        clearItemLock();
-        if (item.type === "hint") {
-          // 重要ヒントは通常アイテム枠を消費しない。
-          setRoute("explore");
+        if (state.debugMode) {
+          const now = serverNow();
+          state.debugClaims[item.id] = { playerKey: state.playerKey, playerName: state.playerName, itemName: item.name,
+            locationId: room.id, claimedAt: now, periodStart: state.periodStart, gameDay: "DAY-" + state.gameDay };
+          saveDebugClaims();
+          state.inventory[item.id] = { name: item.name, symbol: item.symbol, image: item.image || "", locationId: room.id,
+            locationName: room.name, acquiredAt: now, periodStart: state.periodStart, itemType: item.type };
+          if (item.type !== "hint") state.dailySlot = { playerKey: state.playerKey, itemId: item.id, periodStart: state.periodStart, status: "claimed" };
         } else {
-          // 通常アイテムは1日1個まで。
-          // 未発見の重要ヒントが残っていれば、その探索だけ続行できる。
-          setRoute("explore");
+          const { data, error } = await supabase.rpc("claim_item", {
+            p_item_id: item.id, p_item_name: item.name, p_item_type: item.type === "hint" ? "hint" : "normal",
+            p_player_key: state.playerKey, p_player_name: state.playerName, p_location_id: room.id, p_location_name: room.name,
+            p_game_day: state.gameDay, p_item_symbol: item.symbol || "", p_item_image: item.image || ""
+          });
+          if (error) throw error;
+          const result = data || {};
+          if (!result.ok) {
+            const reason = result.reason;
+            if (reason === "already_claimed") showToast(item.type === "hint" ? "この重要ヒントはすでに発見されています。" : "誰かが先に取得しました。");
+            else if (reason === "normal_limit") showToast("本日の通常アイテムはすでに取得済みです。");
+            else if (reason === "hint_limit") showToast("重要ヒントも1人1日1個までです。");
+            else showToast("取得できませんでした。");
+            await loadSupabaseData();
+            clearItemLock(); setRoute("explore"); return;
+          }
+          await loadSupabaseData();
         }
+
+        showToast(item.type === "hint" ? "重要ヒント「" + item.name + "」を入手しました。スクリーンショットで皆んなに共有してください。" : "「" + item.name + "」を入手しました。");
+        clearItemLock(); setRoute("explore");
       } catch (error) {
         handleError(error);
         showToast("取得に失敗しました。画面上部の「要確認」の内容を確認してください。");
@@ -2988,83 +2907,31 @@
         state.claimInProgress = false;
         button.disabled = false;
         button.textContent = item.type === "hint" ? "この重要ヒントを取得する" : "このアイテムを入手する";
-        renderExploreHome();
-        handleRoute(false);
+        renderExploreHome(); handleRoute(false);
       }
     }
 
-    async function reconcileDailySlot() {
-      if (state.reconciling || state.claimInProgress || !state.user || !state.dailySlot) return;
-      if (Number(state.dailySlot.periodStart || 0) !== Number(state.periodStart)) return;
-      if (state.dailySlot.status !== "reserved") return;
-      const claim = state.claims[state.dailySlot.itemId];
-      if (!claim || claim.playerKey !== state.playerKey || Number(claim.periodStart || 0) !== Number(state.periodStart)) return;
-
-      state.reconciling = true;
-      try {
-        await set(refPath("dailySlots/" + state.playerKey), Object.assign({}, state.dailySlot, {
-          status: "claimed",
-          updatedAt: serverNow()
-        }));
-      } catch (error) {
-        handleError(error);
-      } finally {
-        state.reconciling = false;
-      }
-    }
+    async function reconcileDailySlot() { return; }
 
     function startRealtimeListeners() {
-      if (state.listenersStarted || !state.user || !state.playerKey) return;
+      if (state.listenersStarted || !state.playerKey) return;
       state.listenersStarted = true;
-      state.claimsLoaded = false;
-      state.dailySlotLoaded = false;
-
-      onValue(ref(db, ".info/serverTimeOffset"), function (snapshot) {
-        state.serverOffset = Number(snapshot.val() || 0);
-        checkPeriodChange();
-      });
-
-      onValue(ref(db, ".info/connected"), function (snapshot) {
-        const connected = snapshot.val() === true;
-        setConnection(connected ? "online" : "", connected ? "リアルタイム" : "再接続中");
-      });
-
-      onValue(refPath("claims"), function (snapshot) {
-        state.claims = snapshot.val() || {};
-        state.claimsLoaded = true;
-        reconcileDailySlot();
-        renderExploreHome();
-        handleRoute(false);
-      }, handleError);
-
-      onValue(refPath("dailySlots/" + state.playerKey), function (snapshot) {
-        state.dailySlot = snapshot.val() || null;
-        state.dailySlotLoaded = true;
-        reconcileDailySlot();
-        renderExploreHome();
-        handleRoute(false);
-      }, handleError);
-
-      onValue(refPath("inventories/" + state.playerKey), function (snapshot) {
-        state.inventory = snapshot.val() || {};
-        renderInventory();
-      }, handleError);
-
-      const logsQuery = query(refPath("logs"), limitToLast(80));
-      onValue(logsQuery, function (snapshot) {
-        const raw = snapshot.val() || {};
-        state.logs = Object.entries(raw).map(function (entry) {
-          return Object.assign({ id: entry[0] }, entry[1]);
-        });
-        renderLogs();
-      }, handleError);
+      state.claimsLoaded = false; state.dailySlotLoaded = false;
+      loadSupabaseData().catch(handleError);
+      if (!state.debugMode) {
+        supabase.channel("el-capote-live")
+          .on("postgres_changes", { event: "*", schema: "public", table: "item_claims" }, function () { loadSupabaseData().catch(handleError); })
+          .on("postgres_changes", { event: "*", schema: "public", table: "action_logs" }, function () { loadSupabaseData().catch(handleError); })
+          .subscribe(function (status) {
+            if (status === "SUBSCRIBED") setConnection("online", "リアルタイム");
+          });
+      }
     }
 
     async function savePlayerName(nextName) {
       const clean = normalizePlayerName(nextName);
       if (!clean) throw new Error("名前を入力してください。");
       if ([...clean].length > 12) throw new Error("名前は12文字以内にしてください。");
-      if (!state.user) throw new Error("接続が終わるまで少し待ってください。");
 
       // 一度このブラウザで登録した参加名は変更不可。
       if (state.playerName && state.playerName !== clean) {
@@ -3078,11 +2945,10 @@
       el.playerNameLabel.textContent = clean;
       el.editNameButton.hidden = true;
 
-      await set(refPath("players/" + state.playerKey), {
-        name: clean,
-        playerKey: state.playerKey,
-        updatedAt: serverNow()
-      });
+      if (!state.debugMode) {
+        const { error } = await supabase.rpc("register_player", { p_player_key: state.playerKey, p_player_name: clean });
+        if (error) throw error;
+      }
 
       startRealtimeListeners();
 
@@ -3158,10 +3024,13 @@
       }
       if (!window.confirm("TESTデータをすべて削除します。よろしいですか？")) return;
       try {
-        await set(ref(db, "test"), null);
         state.debugClaims = {};
+        state.inventory = {};
+        state.dailySlot = null;
+        state.logs = [];
         localStorage.removeItem("sp-explore-debug-claims");
         clearItemLock();
+        renderExploreHome(); renderInventory(); renderLogs();
         showToast("TESTデータをリセットしました。");
       } catch (error) {
         handleError(error);
@@ -3224,41 +3093,30 @@
     handleRoute(false);
     el.playerNameLabel.textContent = state.playerName || "名前を設定してください";
 
-    onAuthStateChanged(auth, async function (user) {
-      if (!user) {
-        try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          handleError(error);
-          el.loadingCover.classList.add("hide");
-        }
-        return;
-      }
-
-      state.user = user;
-
-      if (state.playerName) {
-        state.playerKey = playerKeyFromName(state.playerName);
-        el.editNameButton.hidden = true;
-        try {
-          await set(refPath("players/" + state.playerKey), {
-            name: state.playerName,
-            playerKey: state.playerKey,
-            updatedAt: serverNow()
-          });
+    (async function initSupabase() {
+      try {
+        state.user = { uid: "supabase-anon" };
+        if (state.playerName) {
+          state.playerKey = playerKeyFromName(state.playerName);
+          el.editNameButton.hidden = true;
+          if (!state.debugMode) {
+            const { error } = await supabase.rpc("register_player", { p_player_key: state.playerKey, p_player_name: state.playerName });
+            if (error) throw error;
+          }
           startRealtimeListeners();
-        } catch (error) {
-          handleError(error);
+        } else {
+          el.editNameButton.hidden = true;
+          showNameModal(false);
         }
-      } else {
-        el.editNameButton.hidden = true;
-        showNameModal(false);
+        setConnection("online", state.debugMode ? "TEST" : "接続済み");
+      } catch (error) {
+        handleError(error);
+      } finally {
+        el.loadingCover.classList.add("hide");
+        renderExploreHome();
+        handleRoute(false);
       }
-
-      el.loadingCover.classList.add("hide");
-      renderExploreHome();
-      handleRoute(false);
-    });
+    })();
   </script>
 </body>
 </html>

@@ -1651,13 +1651,19 @@
     const urlTestDay = Number(urlParams.get("day") || 1);
     const urlIsAdmin = urlTestMode || urlParams.get("admin") === TEST_ADMIN_TOKEN;
 
-    // 旧版TEST MODEで使っていたブラウザ保存値は、公開画面へ影響しないよう破棄する。
+    // TEST MODEと本番で参加名を完全に分離する。
+    // 旧版で共用していた参加名は、本番へ引き継がない。
     localStorage.removeItem("sp-explore-debug-mode");
     localStorage.removeItem("sp-explore-debug-day");
+    localStorage.removeItem("sp-explore-player-name");
+
+    const PROD_PLAYER_NAME_KEY = "sp-explore-prod-player-name-v2";
+    const TEST_PLAYER_NAME_KEY = "sp-explore-test-player-name-v2";
+    const ACTIVE_PLAYER_NAME_KEY = urlTestMode ? TEST_PLAYER_NAME_KEY : PROD_PLAYER_NAME_KEY;
 
     const state = {
       user: { uid: "supabase-anon" },
-      playerName: localStorage.getItem("sp-explore-player-name") || "",
+      playerName: localStorage.getItem(ACTIVE_PLAYER_NAME_KEY) || "",
       playerKey: "",
       claims: {},
       inventory: {},
@@ -2941,7 +2947,7 @@
       const wasEmpty = !state.playerName;
       state.playerName = clean;
       state.playerKey = playerKeyFromName(clean);
-      localStorage.setItem("sp-explore-player-name", clean);
+      localStorage.setItem(ACTIVE_PLAYER_NAME_KEY, clean);
       el.playerNameLabel.textContent = clean;
       el.editNameButton.hidden = true;
 
@@ -3029,9 +3035,14 @@
         state.dailySlot = null;
         state.logs = [];
         localStorage.removeItem("sp-explore-debug-claims");
+        localStorage.removeItem(TEST_PLAYER_NAME_KEY);
+        state.playerName = "";
+        state.playerKey = "";
+        el.playerNameLabel.textContent = "名前を設定してください";
         clearItemLock();
         renderExploreHome(); renderInventory(); renderLogs();
-        showToast("TESTデータをリセットしました。");
+        showToast("TESTデータとTEST参加名をリセットしました。");
+        showNameModal(false);
       } catch (error) {
         handleError(error);
       }

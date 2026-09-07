@@ -247,6 +247,52 @@
       opacity:.85;
     }
 
+    .map-monologues{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .map-monologue{
+      min-height:88px;
+      padding:11px 12px;
+      border:1px solid var(--line);
+      border-radius:13px;
+      background:rgba(255,255,255,.025);
+    }
+    .map-monologue.runner{
+      border-color:rgba(120,191,255,.28);
+      background:rgba(120,191,255,.05);
+    }
+    .map-monologue.hunter{
+      border-color:rgba(255,100,100,.28);
+      background:rgba(255,100,100,.05);
+    }
+    .map-monologue small{
+      display:block;
+      margin-bottom:6px;
+      color:var(--muted);
+      font-size:9px;
+      letter-spacing:.08em;
+    }
+    .map-monologue strong{
+      display:block;
+      margin-bottom:6px;
+      font-size:11px;
+    }
+    .map-monologue p{
+      margin:0;
+      color:var(--ink);
+      font-family:Georgia,"Yu Mincho","Hiragino Mincho ProN",serif;
+      font-size:12px;
+      line-height:1.6;
+      word-break:break-word;
+    }
+    .map-monologue .empty{
+      color:var(--muted);
+      font-style:italic;
+    }
+
     .hidden{display:none!important}.toast{position:fixed;z-index:80;right:16px;bottom:18px;left:16px;width:min(calc(100% - 32px),520px);margin:auto;
       padding:13px 15px;border:1px solid rgba(228,181,90,.35);border-radius:13px;background:rgba(38,29,29,.97);box-shadow:var(--shadow);
       opacity:0;pointer-events:none;transform:translateY(8px);transition:.2s;font-size:12px}.toast.show{opacity:1;transform:none}
@@ -399,6 +445,19 @@
             </div>
           </div>
           <svg id="chaseMap" viewBox="0 0 500 500" role="img" aria-label="EL CAPOTE館内ライブマップ"></svg>
+
+          <div class="map-monologues">
+            <div class="map-monologue runner">
+              <small>RUNNER / 一言</small>
+              <strong id="mapRunnerMeta">—</strong>
+              <p id="mapRunnerMonologue" class="empty">まだ一言はない。</p>
+            </div>
+            <div class="map-monologue hunter">
+              <small>HUNTER / 一言</small>
+              <strong id="mapHunterMeta">—</strong>
+              <p id="mapHunterMonologue" class="empty">まだ一言はない。</p>
+            </div>
+          </div>
         </div>
 
         <div class="adjacent-alert hidden" id="specEncounterAlert">遭遇！ アイテムが公開された。</div>
@@ -546,6 +605,7 @@ const S = {
   moveTimer:null,
   staleTimer:null,
   resetting:false,
+  timeoutCommitted:false,
   busy:false
 };
 
@@ -754,6 +814,15 @@ async function boot(){
 }
 function render(){
   if(!S.game)return;
+
+  if(
+    S.game.status==="playing" &&
+    S.game.ends_at &&
+    Date.now()<new Date(S.game.ends_at).getTime()
+  ){
+    S.timeoutCommitted=false;
+  }
+
   const r=player("runner"),h=player("hunter");
   $("runnerLobby").textContent=r?.player_name||"待機中…";$("hunterLobby").textContent=h?.player_name||"待機中…";
 
@@ -848,9 +917,13 @@ function tick(){
   }
 }
 async function timeoutRunner(){
-  if(!S.myRole || S.spectator || S.busy) return;
+  // TIME UP確定は逃亡者側の端末だけが担当する。
+  // 同じ端末でも一度だけ。
+  if(S.myRole!=="runner" || S.spectator || S.busy || S.timeoutCommitted) return;
 
   S.busy=true;
+  S.timeoutCommitted=true;
+
   try{
     const {data,error}=await supabase
       .from("chase_games")
@@ -866,12 +939,19 @@ async function timeoutRunner(){
 
     if(error) throw error;
 
-    // 最初に playing → finished へ更新できた端末だけがログを書く。
     if(data && data.length===1){
-      await logSystem("TIME UP。逃亡者が三分間を逃げ切った。");
+      // Realtimeを待たずローカルでも即終了扱いにする。
+      // TIME UP文言はchase_messagesへinsertしない。
+      // 観戦画面ではgameの結果から1件だけ生成表示する。
+      S.game.status="finished";
+      S.game.winner_role="runner";
+      S.game.result_text="三分間、追撃者と遭遇せず逃げ切った。";
     }
+
+    await refresh();
   }catch(e){
     console.error("timeoutRunner:",e);
+    S.timeoutCommitted=false;
   }finally{
     S.busy=false;
   }
@@ -1154,23 +1234,82 @@ function renderChaseMap(){
   drawPlayer(hp,h,"hunter");
 }
 
+
+function latestMonologueFor(role){
+  return S.messages
+    .filter(m=>m.channel==="monologue" && m.role===role)
+    .slice(-1)[0] || null;
+}
+
+function renderMapMonologues(){
+  const r=player("runner"), h=player("hunter");
+  const rm=latestMonologueFor("runner");
+  const hm=latestMonologueFor("hunter");
+
+  $("mapRunnerMeta").textContent = r
+    ? (r.player_name+" / "+roomName(r.current_room))
+    : "逃亡者 未参加";
+  $("mapHunterMeta").textContent = h
+    ? (h.player_name+" / "+roomName(h.current_room))
+    : "追撃者 未参加";
+
+  $("mapRunnerMonologue").textContent = rm?.message || "まだ一言はない。";
+  $("mapHunterMonologue").textContent = hm?.message || "まだ一言はない。";
+
+  $("mapRunnerMonologue").classList.toggle("empty",!rm);
+  $("mapHunterMonologue").classList.toggle("empty",!hm);
+}
+
 function renderSpectator(){
   if(!S.game)return;const r=player("runner"),h=player("hunter");
   $("specRunnerName").textContent=r?.player_name||"待機中";$("specHunterName").textContent=h?.player_name||"待機中";
   $("specRunnerRoom").textContent=r?(r.moving_to?roomName(r.current_room)+" → "+roomName(r.moving_to):roomName(r.current_room)):"—";
   $("specHunterRoom").textContent=h?(h.moving_to?roomName(h.current_room)+" → "+roomName(h.moving_to):roomName(h.current_room)):"—";
-  const itemsRevealed=!!S.game.encounter_room || ["encounter","draw_decision","finished"].includes(S.game.status);
+  // 「遭遇表示」と「アイテム公開条件」は分ける。
+  // 遭遇表示は実際に同じ部屋で遭遇した時だけ。
+  // アイテムは、遭遇時またはゲーム終了後に公開する。
+  const didEncounter=!!S.game.encounter_room;
+  const itemsRevealed=didEncounter || S.game.status==="finished";
+
   $("specRunnerItem").textContent=(itemsRevealed&&r?.item_id)?"ITEM "+itemName(r.item_id):"ITEM ?";
   $("specHunterItem").textContent=(itemsRevealed&&h?.item_id)?"ITEM "+itemName(h.item_id):"ITEM ?";
-  $("specEncounterAlert").classList.toggle("hidden",!itemsRevealed);
+  $("specEncounterAlert").classList.toggle("hidden",!didEncounter);
   renderChaseMap();
+  renderMapMonologues();
   const left=S.game.ends_at?new Date(S.game.ends_at).getTime()-rn():GAME_MS;$("specTimer").textContent=S.game.status==="finished"?"00:00":fmt(left);
-  $("spectateLog").innerHTML=S.messages.slice().reverse().map(x=>{
+  // 過去の同一SYSTEMメッセージがDBに複数残っていても、表示は1件だけにする。
+  const seenSystem=new Set();
+  const visibleMessages=S.messages.slice().reverse().filter(x=>{
+    if(x.channel!=="system") return true;
+    const key=x.message||"";
+    if(seenSystem.has(key)) return false;
+    seenSystem.add(key);
+    return true;
+  });
+
+  let logHtml=visibleMessages.map(x=>{
     const t=new Date(x.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
     const prefix=x.channel==="monologue"?"独り言":x.channel==="encounter"?"会話":"SYSTEM";
     const where=x.room_id?" / "+roomName(x.room_id):"";
     return `<div class="logrow"><time>${t}</time><strong>${escapeHtml(prefix)}</strong> ${escapeHtml(x.player_name||"")} ${escapeHtml(where)}<br>${escapeHtml(x.message)}</div>`
-  }).join("")||'<div class="tiny">まだ記録はありません。</div>'
+  }).join("");
+
+  // 遭遇せずに逃亡者がTIME UP勝利した時だけ、結果から1件だけ生成する。
+  const escapedByTime =
+    S.game.status==="finished" &&
+    S.game.winner_role==="runner" &&
+    !S.game.encounter_room &&
+    S.game.result_text==="三分間、追撃者と遭遇せず逃げ切った。";
+
+  if(escapedByTime){
+    const time=S.game.ends_at
+      ? new Date(S.game.ends_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"})
+      : "";
+    const synthetic=`<div class="logrow"><time>${escapeHtml(time)}</time><strong>SYSTEM</strong> EL CAPOTE<br>TIME UP。逃亡者が三分間を逃げ切った。</div>`;
+    logHtml=synthetic+logHtml;
+  }
+
+  $("spectateLog").innerHTML=logHtml||'<div class="tiny">まだ記録はありません。</div>'
 }
 
 document.querySelectorAll("[data-role]").forEach(b=>b.addEventListener("click",()=>{S.selectedRole=b.dataset.role;$("chosenRoleText").textContent=ROLE_NAME[S.selectedRole]+"として参加します。";show("nameScreen")}));

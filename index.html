@@ -126,7 +126,7 @@
       <div class="panel">
         <p class="eyebrow">STEP 02 / NAME</p><h2>名を告げる</h2>
         <p id="chosenRoleText"></p>
-        <input id="nameInput" class="input" maxlength="12" autocomplete="nickname" placeholder="表示名（12文字まで）">
+        <input id="nameInput" class="input" maxlength="12" autocomplete="off" autocapitalize="off" placeholder="表示名（12文字まで）">
         <div class="error" id="nameError"></div>
         <button class="btn" id="joinBtn">この名前で参加</button>
         <button class="btn secondary" id="backRoleBtn">役割を選び直す</button>
@@ -286,11 +286,31 @@ const ITEMS = {
 };
 const ROLE_NAME={runner:"逃亡者",hunter:"追撃者"};
 
+const TAB_PLAYER_KEY = "ec_chase_tab_player_key";
+let tabPlayerKey = sessionStorage.getItem(TAB_PLAYER_KEY);
+if (!tabPlayerKey) {
+  tabPlayerKey = crypto.randomUUID();
+  sessionStorage.setItem(TAB_PLAYER_KEY, tabPlayerKey);
+}
+
 const S = {
-  game:null, players:[], messages:[], myRole:null, myKey:localStorage.getItem("ec_chase_key") || crypto.randomUUID(),
-  selectedRole:null, selectedItem:null, spectator:false, realtime:null, tick:null, moveTimer:null, busy:false
+  game:null,
+  players:[],
+  messages:[],
+  myRole:null,
+
+  // 同じタブ内では再読み込みしても同一参加者として復帰。
+  // 別タブ・別ブラウザでは別参加者として扱う。
+  myKey:tabPlayerKey,
+
+  selectedRole:null,
+  selectedItem:null,
+  spectator:false,
+  realtime:null,
+  tick:null,
+  moveTimer:null,
+  busy:false
 };
-localStorage.setItem("ec_chase_key",S.myKey);
 
 const $=id=>document.getElementById(id);
 const screens=[...document.querySelectorAll(".screen")];
@@ -342,8 +362,18 @@ function subscribe(){
 async function boot(){
   try{
     S.game=await ensureGame();await refresh();subscribe();setStatus(true,"接続済み");
+    // 同一タブの参加者だけ自動復帰する。
     const resumed=S.players.find(p=>p.player_key===S.myKey);
-    if(resumed){S.myRole=resumed.role;S.selectedRole=resumed.role}
+    if(resumed){
+      S.myRole=resumed.role;
+      S.selectedRole=resumed.role;
+      S.selectedItem=resumed.item_id || null;
+    }else{
+      S.myRole=null;
+      S.selectedRole=null;
+      S.selectedItem=null;
+      $("nameInput").value="";
+    }
     render();
     S.tick=setInterval(tick,200);
   }catch(e){console.error(e);setStatus(false,"設定が必要");show("roleScreen");toast("Supabase設定SQLを先に実行してください")}
@@ -541,7 +571,8 @@ function renderResult(){
 async function newGame(){
   if(S.game.status!=="finished")return;
   await supabase.from("chase_games").update({active:false}).eq("id",S.game.id);
-  localStorage.removeItem("ec_chase_key");location.reload()
+  sessionStorage.removeItem(TAB_PLAYER_KEY);
+  location.reload()
 }
 async function logSystem(message){
   if(!S.game)return;await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"system",message,player_name:"EL CAPOTE"})

@@ -110,6 +110,18 @@
     body.game-compact #chaseScreen .input{min-height:42px}
     body.game-compact #chaseScreen .send{min-width:68px}
     .move-lock-note{margin:6px 0 0;color:#f2c96d!important;font-size:10px!important;text-align:center}
+    .adjacent-alert{
+      margin:7px 0 0;
+      padding:8px 10px;
+      border:1px solid rgba(255,72,72,.62);
+      border-radius:10px;
+      color:#ff7070;
+      background:rgba(120,10,18,.22);
+      font-size:12px;
+      font-weight:900;
+      text-align:center;
+      letter-spacing:.04em;
+    }
 
     .pursuit-banner{
       margin:8px 0 0;
@@ -148,6 +160,92 @@
     .logrow.monologue-log strong,.logrow.monologue-log .log-message{color:#8fc7ff}
     .logrow.encounter-log strong,.logrow.encounter-log .log-message{color:#ff7b7b}
     .logrow.system-log strong,.logrow.system-log .log-message{color:#c8bbb2}
+
+    /* 観戦用・館内ライブマップ */
+    .spectator-map-wrap{
+      margin-top:14px;
+      padding:10px;
+      overflow:hidden;
+      border:1px solid rgba(228,181,90,.24);
+      border-radius:16px;
+      background:
+        radial-gradient(circle at 50% 45%,rgba(124,23,29,.13),transparent 55%),
+        rgba(0,0,0,.22);
+    }
+    .spectator-map-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .spectator-map-head strong{
+      font:600 14px Georgia,"Yu Mincho",serif;
+    }
+    .map-legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      color:var(--muted);
+      font-size:9px;
+    }
+    .map-legend span{display:inline-flex;align-items:center;gap:5px}
+    .map-dot-key{
+      width:8px;height:8px;border-radius:50%;display:inline-block
+    }
+    .map-dot-key.runner{background:#78bfff}
+    .map-dot-key.hunter{background:#ff6464}
+
+    #chaseMap{
+      display:block;
+      width:100%;
+      height:auto;
+      aspect-ratio: 1 / 1;
+    }
+    .map-edge{
+      stroke:rgba(228,181,90,.12);
+      stroke-width:1.1;
+    }
+    .map-node{
+      fill:#211a1a;
+      stroke:rgba(228,181,90,.34);
+      stroke-width:1;
+    }
+    .map-node-label{
+      fill:#cdbfb4;
+      font-size:8px;
+      text-anchor:middle;
+      dominant-baseline:middle;
+      pointer-events:none;
+    }
+    .map-player-ring{
+      fill:none;
+      stroke-width:5;
+      opacity:.22;
+    }
+    .map-player{
+      stroke:#100d0d;
+      stroke-width:2.5;
+    }
+    .map-player.runner{fill:#78bfff}
+    .map-player.hunter{fill:#ff6464}
+    .map-player-ring.runner{stroke:#78bfff}
+    .map-player-ring.hunter{stroke:#ff6464}
+    .map-player-label{
+      fill:#f8f3eb;
+      font-size:8px;
+      font-weight:800;
+      paint-order:stroke;
+      stroke:#100d0d;
+      stroke-width:3px;
+      stroke-linejoin:round;
+    }
+    .map-encounter-ring{
+      fill:none;
+      stroke:#ff4444;
+      stroke-width:4;
+      opacity:.85;
+    }
 
     .hidden{display:none!important}.toast{position:fixed;z-index:80;right:16px;bottom:18px;left:16px;width:min(calc(100% - 32px),520px);margin:auto;
       padding:13px 15px;border:1px solid rgba(228,181,90,.35);border-radius:13px;background:rgba(38,29,29,.97);box-shadow:var(--shadow);
@@ -234,6 +332,7 @@
       </div>
       <div class="panel">
         <p class="eyebrow">MOVE</p><h3>次の部屋</h3>
+        <div class="adjacent-alert hidden" id="adjacentAlert">隣の部屋にいる！</div>
         <p class="move-lock-note" id="moveLockNote">一言つぶやくと、次の部屋へ進めます。</p>
         <div class="room-grid" id="roomButtons"></div>
       </div>
@@ -290,6 +389,19 @@
           <div class="person"><small>RUNNER</small><strong id="specRunnerName">—</strong><em id="specRunnerRoom">—</em><span class="badge" id="specRunnerItem">ITEM ?</span></div>
           <div class="person"><small>HUNTER</small><strong id="specHunterName">—</strong><em id="specHunterRoom">—</em><span class="badge" id="specHunterItem">ITEM ?</span></div>
         </div>
+
+        <div class="spectator-map-wrap">
+          <div class="spectator-map-head">
+            <strong>館内 LIVE MAP</strong>
+            <div class="map-legend">
+              <span><i class="map-dot-key runner"></i>逃亡者</span>
+              <span><i class="map-dot-key hunter"></i>追撃者</span>
+            </div>
+          </div>
+          <svg id="chaseMap" viewBox="0 0 500 500" role="img" aria-label="EL CAPOTE館内ライブマップ"></svg>
+        </div>
+
+        <div class="adjacent-alert hidden" id="specEncounterAlert">遭遇！ アイテムが公開された。</div>
       </div>
       <div class="panel"><p class="eyebrow">LIVE LOG</p><h3>すべての声と動き</h3><div class="log" id="spectateLog"></div></div>
     </section>
@@ -357,6 +469,51 @@ const ITEMS = {
   rope:{name:"ロープ",beats:"blindfold"},
   blindfold:{name:"目隠し",beats:"knife"},
   knife:{name:"ナイフ",beats:"rope"}
+};
+
+/* 観戦用の簡略館内図。実際のゲーム接続 roomGraph と同じ30室を配置。 */
+const MAP_POS = {
+  "arena":[250,250],
+  "portrait-gallery":[170,175],
+  "study":[95,120],
+  "library":[160,80],
+  "reception-room":[250,70],
+  "lounge":[335,85],
+  "billiards-room":[405,130],
+  "bar":[430,220],
+  "dining-room":[405,305],
+  "kitchen":[330,370],
+  "pantry":[250,410],
+  "wine-cellar":[165,390],
+  "costume-room":[90,335],
+  "dressing-room":[65,250],
+  "mirror-room":[95,185],
+  "clinic":[150,250],
+  "treatment-room":[155,315],
+  "hernando-room":[215,340],
+  "guest-room":[285,340],
+  "bathroom":[350,315],
+  "chapel":[350,250],
+  "confessional":[350,185],
+  "servants-room":[300,145],
+  "linen-room":[250,150],
+  "service-corridor":[205,185],
+  "back-stairs":[205,245],
+  "underground-corridor":[205,300],
+  "underground-storage":[250,300],
+  "torture-room":[295,300],
+  "blind-spot-room":[295,245]
+};
+
+const MAP_SHORT = {
+  "arena":"闘技場","portrait-gallery":"肖像","study":"書斎","library":"図書",
+  "reception-room":"応接","lounge":"ラウンジ","billiards-room":"ビリヤード","bar":"酒場",
+  "dining-room":"食堂","kitchen":"厨房","pantry":"パントリー","wine-cellar":"酒蔵",
+  "costume-room":"衣裳","dressing-room":"更衣","mirror-room":"鏡","clinic":"診察",
+  "treatment-room":"治療","hernando-room":"自室","guest-room":"客間","bathroom":"浴室",
+  "chapel":"礼拝","confessional":"告解","servants-room":"使用人","linen-room":"リネン",
+  "service-corridor":"使用人路","back-stairs":"裏階段","underground-corridor":"地下廊下",
+  "underground-storage":"地下倉庫","torture-room":"拷問","blind-spot-room":"盲点"
 };
 const ROLE_NAME={runner:"逃亡者",hunter:"追撃者"};
 
@@ -685,14 +842,39 @@ function tick(){
     if(left<=0 && !S.busy) timeoutRunner();
     finishMoveIfDue();
   }
-  if(S.spectator) renderSpectator();
+  if(S.spectator) {
+    renderSpectator();
+    renderChaseMap();
+  }
 }
 async function timeoutRunner(){
+  if(!S.myRole || S.spectator || S.busy) return;
+
   S.busy=true;
   try{
-    await supabase.from("chase_games").update({status:"finished",winner_role:"runner",result_text:"三分間、追撃者と遭遇せず逃げ切った。",updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","playing");
-    await logSystem("TIME UP。逃亡者が三分間を逃げ切った。");
-  }finally{S.busy=false}
+    const {data,error}=await supabase
+      .from("chase_games")
+      .update({
+        status:"finished",
+        winner_role:"runner",
+        result_text:"三分間、追撃者と遭遇せず逃げ切った。",
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",S.game.id)
+      .eq("status","playing")
+      .select("id");
+
+    if(error) throw error;
+
+    // 最初に playing → finished へ更新できた端末だけがログを書く。
+    if(data && data.length===1){
+      await logSystem("TIME UP。逃亡者が三分間を逃げ切った。");
+    }
+  }catch(e){
+    console.error("timeoutRunner:",e);
+  }finally{
+    S.busy=false;
+  }
 }
 function renderChase(){
   const m=me();if(!m)return;$("currentRoom").textContent=roomName(m.current_room);
@@ -720,10 +902,13 @@ function renderChase(){
   $("roomButtons").innerHTML=(roomGraph[m.current_room]||[]).map(id=>`<button class="room" data-move="${id}" ${canMove?"":"disabled"}><small>MOVE TO</small><strong>${escapeHtml(roomName(id))}</strong></button>`).join("");
   document.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>moveTo(b.dataset.move));
   renderSolo();
-  const heard=op && !op.moving_to && !m.moving_to && adjacent(m.current_room,op.current_room);
-  const audible=S.messages.filter(x=>x.channel==="monologue"&&x.role===op?.role&&x.audible_to===S.myRole).slice(-1)[0];
-  $("whisperBox").classList.toggle("hidden",!(heard&&audible));
-  if(heard&&audible)$("whisperBox").innerHTML="── 隣室から声がする。<br>「"+escapeHtml(audible.message)+"」";
+
+  const isAdjacent=!!(op && !op.moving_to && !m.moving_to && adjacent(m.current_room,op.current_room));
+  $("adjacentAlert").classList.toggle("hidden",!isAdjacent);
+
+  // 独り言そのものは常に相手へ聞こえる。
+  // 隣室判定は、移動先4択の赤い警告だけに使う。
+  $("whisperBox").classList.add("hidden");
 }
 async function moveTo(dest){
   const m=me();
@@ -769,13 +954,13 @@ function compareItems(runnerItem,hunterItem){
   return "draw"
 }
 function renderSolo(){
-  const mine=S.messages.filter(x=>x.channel==="monologue"&&(x.role===S.myRole||x.audible_to===S.myRole));
+  const mine=S.messages.filter(x=>x.channel==="monologue");
   $("soloChat").innerHTML=mine.slice(-40).map(x=>`<div class="msg ${x.role===S.myRole?"mine":""}"><small>${escapeHtml(x.player_name)} · ${escapeHtml(roomName(x.room_id))}</small>${escapeHtml(x.message)}</div>`).join("")||'<div class="tiny">まだ声はない。</div>';
   $("soloChat").scrollTop=$("soloChat").scrollHeight
 }
 async function sendMonologue(){
   const input=$("soloInput"),text=input.value.trim();if(!text)return;const m=me(),op=opponent();
-  const audible=op&&!m.moving_to&&!op.moving_to&&adjacent(m.current_room,op.current_room)?op.role:null;
+  const audible=op?.role||null;
   input.value="";
   await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"monologue",role:S.myRole,player_name:m.player_name,message:text,room_id:m.current_room,audible_to:audible});
   await touchGame();
@@ -866,13 +1051,119 @@ async function logSystem(message){
   await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"system",message,player_name:"EL CAPOTE"});
   await touchGame();
 }
+
+function mapPointForPlayer(p, now=Date.now()){
+  if(!p?.current_room || !MAP_POS[p.current_room]) return null;
+
+  const from=MAP_POS[p.current_room];
+  if(!p.moving_to || !MAP_POS[p.moving_to] || !p.move_started_at || !p.move_complete_at){
+    return {x:from[0],y:from[1],moving:false};
+  }
+
+  const start=new Date(p.move_started_at).getTime();
+  const end=new Date(p.move_complete_at).getTime();
+  const span=Math.max(1,end-start);
+  const progress=Math.min(1,Math.max(0,(now-start)/span));
+  const to=MAP_POS[p.moving_to];
+
+  return {
+    x:from[0]+(to[0]-from[0])*progress,
+    y:from[1]+(to[1]-from[1])*progress,
+    moving:progress<1
+  };
+}
+
+function renderChaseMap(){
+  const svg=$("chaseMap");
+  if(!svg) return;
+
+  const NS="http://www.w3.org/2000/svg";
+  svg.replaceChildren();
+
+  // 重複線を避けて接続線を描く。
+  const drawn=new Set();
+  for(const [room,neighbors] of Object.entries(roomGraph)){
+    const a=MAP_POS[room];
+    if(!a) continue;
+    for(const n of neighbors){
+      const b=MAP_POS[n];
+      if(!b) continue;
+      const key=[room,n].sort().join("|");
+      if(drawn.has(key)) continue;
+      drawn.add(key);
+      const line=document.createElementNS(NS,"line");
+      line.setAttribute("x1",a[0]); line.setAttribute("y1",a[1]);
+      line.setAttribute("x2",b[0]); line.setAttribute("y2",b[1]);
+      line.setAttribute("class","map-edge");
+      svg.appendChild(line);
+    }
+  }
+
+  // 部屋ノード
+  for(const [room,pos] of Object.entries(MAP_POS)){
+    const g=document.createElementNS(NS,"g");
+
+    const c=document.createElementNS(NS,"circle");
+    c.setAttribute("cx",pos[0]); c.setAttribute("cy",pos[1]); c.setAttribute("r","14");
+    c.setAttribute("class","map-node");
+    g.appendChild(c);
+
+    const label=document.createElementNS(NS,"text");
+    label.setAttribute("x",pos[0]); label.setAttribute("y",pos[1]);
+    label.setAttribute("class","map-node-label");
+    label.textContent=MAP_SHORT[room]||"";
+    g.appendChild(label);
+
+    svg.appendChild(g);
+  }
+
+  const now=Date.now();
+  const r=player("runner"), h=player("hunter");
+  const rp=mapPointForPlayer(r,now), hp=mapPointForPlayer(h,now);
+
+  // 遭遇したら大きな赤リング
+  if(S.game.encounter_room && MAP_POS[S.game.encounter_room]){
+    const p=MAP_POS[S.game.encounter_room];
+    const ring=document.createElementNS(NS,"circle");
+    ring.setAttribute("cx",p[0]); ring.setAttribute("cy",p[1]); ring.setAttribute("r","25");
+    ring.setAttribute("class","map-encounter-ring");
+    svg.appendChild(ring);
+  }
+
+  function drawPlayer(point,p,role){
+    if(!point||!p) return;
+
+    const ring=document.createElementNS(NS,"circle");
+    ring.setAttribute("cx",point.x); ring.setAttribute("cy",point.y); ring.setAttribute("r","15");
+    ring.setAttribute("class","map-player-ring "+role);
+    svg.appendChild(ring);
+
+    const dot=document.createElementNS(NS,"circle");
+    dot.setAttribute("cx",point.x); dot.setAttribute("cy",point.y); dot.setAttribute("r","8");
+    dot.setAttribute("class","map-player "+role);
+    svg.appendChild(dot);
+
+    const label=document.createElementNS(NS,"text");
+    label.setAttribute("x",point.x+11); label.setAttribute("y",point.y-11);
+    label.setAttribute("class","map-player-label");
+    label.textContent=p.player_name||ROLE_NAME[role];
+    svg.appendChild(label);
+  }
+
+  drawPlayer(rp,r,"runner");
+  drawPlayer(hp,h,"hunter");
+}
+
 function renderSpectator(){
   if(!S.game)return;const r=player("runner"),h=player("hunter");
   $("specRunnerName").textContent=r?.player_name||"待機中";$("specHunterName").textContent=h?.player_name||"待機中";
   $("specRunnerRoom").textContent=r?(r.moving_to?roomName(r.current_room)+" → "+roomName(r.moving_to):roomName(r.current_room)):"—";
   $("specHunterRoom").textContent=h?(h.moving_to?roomName(h.current_room)+" → "+roomName(h.moving_to):roomName(h.current_room)):"—";
-  $("specRunnerItem").textContent=r?.item_id?"ITEM "+itemName(r.item_id):"ITEM ?";
-  $("specHunterItem").textContent=h?.item_id?"ITEM "+itemName(h.item_id):"ITEM ?";
+  const itemsRevealed=!!S.game.encounter_room || ["encounter","draw_decision","finished"].includes(S.game.status);
+  $("specRunnerItem").textContent=(itemsRevealed&&r?.item_id)?"ITEM "+itemName(r.item_id):"ITEM ?";
+  $("specHunterItem").textContent=(itemsRevealed&&h?.item_id)?"ITEM "+itemName(h.item_id):"ITEM ?";
+  $("specEncounterAlert").classList.toggle("hidden",!itemsRevealed);
+  renderChaseMap();
   const left=S.game.ends_at?new Date(S.game.ends_at).getTime()-rn():GAME_MS;$("specTimer").textContent=S.game.status==="finished"?"00:00":fmt(left);
   $("spectateLog").innerHTML=S.messages.slice().reverse().map(x=>{
     const t=new Date(x.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});

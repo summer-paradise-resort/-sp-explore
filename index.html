@@ -89,6 +89,66 @@
     .person small{color:var(--muted);font-size:9px}.person strong{display:block;margin-top:4px}.person em{display:block;margin-top:8px;color:var(--gold);font-style:normal;font-size:12px}
     .log{margin-top:12px;max-height:360px;overflow:auto}.logrow{padding:10px 3px;border-bottom:1px solid rgba(255,255,255,.07);font-size:11px;line-height:1.6}
     .logrow time{color:var(--muted);margin-right:7px}.badge{display:inline-block;padding:4px 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:9px}
+
+    body.game-compact .hero{display:none}
+    body.game-compact main{padding-top:10px}
+    body.game-compact .topbar{min-height:62px;padding-top:calc(8px + env(safe-area-inset-top));padding-bottom:8px}
+    body.game-compact #chaseScreen>.panel{margin-bottom:8px;padding:11px 12px;border-radius:16px}
+    body.game-compact #chaseScreen>.panel:first-child{padding:9px 12px}
+    body.game-compact #chaseScreen .timer{font-size:38px;line-height:1}
+    body.game-compact #chaseScreen .location{margin-top:7px;padding:8px 10px;border-radius:12px}
+    body.game-compact #chaseScreen .location small{font-size:8px}
+    body.game-compact #chaseScreen .location strong{margin-top:2px;font-size:18px}
+    body.game-compact #chaseScreen .travel{margin-top:7px}
+    body.game-compact #chaseScreen .room-grid{gap:7px;margin-top:8px}
+    body.game-compact #chaseScreen .room{min-height:56px;padding:8px 10px;border-radius:11px}
+    body.game-compact #chaseScreen .room strong{margin-top:3px;font-size:12px}
+    body.game-compact #chaseScreen .eyebrow{margin-bottom:4px;font-size:9px}
+    body.game-compact #chaseScreen h3{font-size:18px}
+    body.game-compact #chaseScreen .panel p{margin:6px 0;font-size:10px;line-height:1.55}
+    body.game-compact #soloChat{height:112px;margin-top:7px}
+    body.game-compact #chaseScreen .input{min-height:42px}
+    body.game-compact #chaseScreen .send{min-width:68px}
+    .move-lock-note{margin:6px 0 0;color:#f2c96d!important;font-size:10px!important;text-align:center}
+
+    .pursuit-banner{
+      margin:8px 0 0;
+      padding:9px 12px;
+      border-radius:11px;
+      font-family:Georgia,"Yu Mincho","Hiragino Mincho ProN",serif;
+      font-size:13px;
+      font-weight:700;
+      line-height:1.55;
+      text-align:center;
+      letter-spacing:.02em;
+    }
+    .pursuit-banner.runner{
+      color:#ffd7d7;
+      border:1px solid rgba(255,92,92,.4);
+      background:rgba(120,18,25,.32);
+    }
+    .pursuit-banner.hunter{
+      color:#f7dfaa;
+      border:1px solid rgba(228,181,90,.4);
+      background:rgba(228,181,90,.08);
+    }
+
+    #encounterScreen .encounter-alert{
+      border-color:rgba(255,74,74,.72);
+      background:linear-gradient(145deg,rgba(105,8,12,.72),rgba(34,12,12,.96));
+      box-shadow:0 0 0 1px rgba(255,90,90,.12),0 18px 50px rgba(0,0,0,.45)
+    }
+    #encounterScreen #encounterTitle{color:#ff5757!important;font-size:46px}
+    #encounterScreen #encounterText{color:#ffd4d4;font-weight:700}
+    #encounterScreen .chat{height:45vh;min-height:280px}
+    #winnerEndActions{margin-top:14px}
+    #winnerWaiting{margin-top:12px;color:var(--muted);font-size:11px}
+
+    .logrow.move-log strong,.logrow.move-log .log-message{color:#e4b55a}
+    .logrow.monologue-log strong,.logrow.monologue-log .log-message{color:#8fc7ff}
+    .logrow.encounter-log strong,.logrow.encounter-log .log-message{color:#ff7b7b}
+    .logrow.system-log strong,.logrow.system-log .log-message{color:#c8bbb2}
+
     .hidden{display:none!important}.toast{position:fixed;z-index:80;right:16px;bottom:18px;left:16px;width:min(calc(100% - 32px),520px);margin:auto;
       padding:13px 15px;border:1px solid rgba(228,181,90,.35);border-radius:13px;background:rgba(38,29,29,.97);box-shadow:var(--shadow);
       opacity:0;pointer-events:none;transform:translateY(8px);transition:.2s;font-size:12px}.toast.show{opacity:1;transform:none}
@@ -168,11 +228,13 @@
       <div class="panel">
         <div class="timer" id="timer">03:00</div>
         <div class="location"><small>CURRENT ROOM</small><strong id="currentRoom">—</strong></div>
+        <div class="pursuit-banner hidden" id="pursuitBanner"></div>
         <div class="travel hidden" id="travelWrap"><div class="travelbar"><i id="travelBar"></i></div><div class="traveltext" id="travelText"></div></div>
         <div class="whisper hidden" id="whisperBox"></div>
       </div>
       <div class="panel">
         <p class="eyebrow">MOVE</p><h3>次の部屋</h3>
+        <p class="move-lock-note" id="moveLockNote">一言つぶやくと、次の部屋へ進めます。</p>
         <div class="room-grid" id="roomButtons"></div>
       </div>
       <div class="panel">
@@ -184,7 +246,7 @@
     </section>
 
     <section class="screen" id="encounterScreen">
-      <div class="panel result">
+      <div class="panel result encounter-alert">
         <p class="eyebrow">ENCOUNTER</p><div class="big" id="encounterTitle">遭遇</div>
         <p id="encounterText"></p>
         <div class="roleline"><span>あなた</span><strong id="myItemReveal">—</strong></div>
@@ -194,6 +256,11 @@
           <button class="btn danger" id="endDrawBtn">ここで終了する</button>
           <p class="tiny">どちらか一方が「終了」を選んだ時点で終了します。両者が「続ける」を選んだ場合のみ再開します。</p>
         </div>
+        <div id="winnerEndActions" class="hidden">
+          <button class="btn danger" id="winnerEndBtn">このゲームを終了する</button>
+          <p class="tiny">勝者だけが終了のタイミングを決められます。</p>
+        </div>
+        <p id="winnerWaiting" class="hidden">勝者がゲームを終了するまで、この場に留まります。</p>
       </div>
       <div class="panel">
         <p class="eyebrow">ENCOUNTER CHAT</p><h3>二人の会話</h3>
@@ -205,7 +272,7 @@
     <section class="screen" id="resultScreen">
       <div class="panel result">
         <p class="eyebrow">GAME OVER</p><div class="big" id="resultTitle">—</div><p id="resultText"></p>
-        <button class="btn secondary" id="newGameBtn">新しいゲームを作る</button>
+        <button class="btn secondary" id="newGameBtn">このゲームを終了する</button>
       </div>
       <div class="panel" id="resultChatPanel">
         <p class="eyebrow">AFTER TALK</p><h3>遭遇後の会話</h3>
@@ -327,7 +394,13 @@ const S = {
 
 const $=id=>document.getElementById(id);
 const screens=[...document.querySelectorAll(".screen")];
-function show(id){screens.forEach(x=>x.classList.toggle("active",x.id===id));window.scrollTo({top:0,behavior:"smooth"})}
+function show(id){
+  const current=document.querySelector(".screen.active")?.id;
+  const changed=current!==id;
+  screens.forEach(x=>x.classList.toggle("active",x.id===id));
+  document.body.classList.toggle("game-compact",["chaseScreen","encounterScreen"].includes(id));
+  if(changed) window.scrollTo({top:0,behavior:"auto"});
+}
 function toast(t){$("toast").textContent=t;$("toast").classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").classList.remove("show"),2200)}
 function setStatus(ok,text){$("statusText").textContent=text;$("status").classList.toggle("online",ok)}
 function rn(){return Date.now()}
@@ -339,6 +412,18 @@ function roleTaken(role){return !!player(role)}
 function fmt(ms){ms=Math.max(0,ms);const s=Math.ceil(ms/1000);return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
 function itemName(id){return ITEMS[id]?.name||"—"}
 function adjacent(a,b){return !!(a&&b&&roomGraph[a]?.includes(b))}
+
+function hasSpokenSinceArrival(){
+  const m=me();
+  if(!m||!S.game?.started_at) return false;
+  const startedAt=new Date(S.game.started_at).getTime();
+  const arrivedAt=m.move_complete_at ? new Date(m.move_complete_at).getTime() : 0;
+  const threshold=Math.max(startedAt,arrivedAt||0);
+  return S.messages.some(msg=>{
+    if(msg.channel!=="monologue"||msg.role!==S.myRole||!msg.created_at) return false;
+    return new Date(msg.created_at).getTime()>=threshold;
+  });
+}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 
 
@@ -537,6 +622,7 @@ function render(){
   if(S.game.status==="ready"){show("readyScreen");$("startRoom").textContent=roomName(mine.current_room);$("readyBtn").disabled=!!mine.ready;$("readyText").textContent="二人の準備を確認しています…";return}
   if(S.game.status==="playing"){show("chaseScreen");renderChase();return}
   if(S.game.status==="draw_decision"||S.game.status==="encounter"){show("encounterScreen");renderEncounter();return}
+  if(S.game.status==="finished" && S.game.encounter_room){show("encounterScreen");renderEncounter();return}
   if(S.game.status==="finished"){show("resultScreen");renderResult();return}
 }
 async function maybeAdvance(){
@@ -610,17 +696,42 @@ async function timeoutRunner(){
 }
 function renderChase(){
   const m=me();if(!m)return;$("currentRoom").textContent=roomName(m.current_room);
-  const moving=!!m.moving_to;$("travelWrap").classList.toggle("hidden",!moving);
-  $("roomButtons").innerHTML=(roomGraph[m.current_room]||[]).map(id=>`<button class="room" data-move="${id}" ${moving?"disabled":""}><small>MOVE TO</small><strong>${escapeHtml(roomName(id))}</strong></button>`).join("");
+  const moving=!!m.moving_to;
+  const canMove=hasSpokenSinceArrival()&&!moving;
+
+  const op=opponent();
+  const pursuitBanner=$("pursuitBanner");
+  pursuitBanner.classList.toggle("hidden",!moving);
+  pursuitBanner.classList.toggle("runner",moving&&S.myRole==="runner");
+  pursuitBanner.classList.toggle("hunter",moving&&S.myRole==="hunter");
+
+  if(moving){
+    if(S.myRole==="runner"){
+      pursuitBanner.textContent="あなたは"+(op?.player_name||"追撃者")+"に追われている。";
+    }else{
+      pursuitBanner.textContent="逃げ回る"+(op?.player_name||"逃亡者")+"を追い詰めよう。";
+    }
+  }
+
+  $("travelWrap").classList.toggle("hidden",!moving);
+  $("moveLockNote").textContent=moving
+    ? "移動中です。"
+    : (canMove ? "一言を残した。次の部屋へ進めます。" : "一言つぶやくと、次の部屋へ進めます。");
+  $("roomButtons").innerHTML=(roomGraph[m.current_room]||[]).map(id=>`<button class="room" data-move="${id}" ${canMove?"":"disabled"}><small>MOVE TO</small><strong>${escapeHtml(roomName(id))}</strong></button>`).join("");
   document.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>moveTo(b.dataset.move));
   renderSolo();
-  const op=opponent(),heard=op && !op.moving_to && !m.moving_to && adjacent(m.current_room,op.current_room);
+  const heard=op && !op.moving_to && !m.moving_to && adjacent(m.current_room,op.current_room);
   const audible=S.messages.filter(x=>x.channel==="monologue"&&x.role===op?.role&&x.audible_to===S.myRole).slice(-1)[0];
   $("whisperBox").classList.toggle("hidden",!(heard&&audible));
   if(heard&&audible)$("whisperBox").innerHTML="── 隣室から声がする。<br>「"+escapeHtml(audible.message)+"」";
 }
 async function moveTo(dest){
-  const m=me();if(!m||m.moving_to||S.game.status!=="playing"||!roomGraph[m.current_room]?.includes(dest))return;
+  const m=me();
+  if(!m||m.moving_to||S.game.status!=="playing"||!roomGraph[m.current_room]?.includes(dest))return;
+  if(!hasSpokenSinceArrival()){
+    toast("移動する前に、一言つぶやいてください。");
+    return;
+  }
   const ms=Math.floor(MOVE_MIN+Math.random()*(MOVE_MAX-MOVE_MIN+1));const due=new Date(Date.now()+ms).toISOString();
   await supabase.from("chase_players").update({moving_to:dest,move_started_at:new Date().toISOString(),move_complete_at:due}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
   await touchGame();
@@ -634,7 +745,7 @@ async function finishMoveIfDue(){
   S.busy=true;
   try{
     const dest=m.moving_to;
-    await supabase.from("chase_players").update({current_room:dest,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+    await supabase.from("chase_players").update({current_room:dest,moving_to:null,move_started_at:null,move_complete_at:new Date().toISOString()}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
     await touchGame();
     await refresh();await checkEncounter();
   }finally{S.busy=false}
@@ -668,15 +779,42 @@ async function sendMonologue(){
   input.value="";
   await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"monologue",role:S.myRole,player_name:m.player_name,message:text,room_id:m.current_room,audible_to:audible});
   await touchGame();
+  await refresh();
 }
 function renderEncounter(){
-  const m=me(),op=opponent();$("myItemReveal").textContent=itemName(m?.item_id);$("opItemReveal").textContent=itemName(op?.item_id);
-  $("encounterTitle").textContent=S.game.status==="draw_decision"?"DRAW":"遭遇";
-  $("encounterText").textContent=S.game.status==="draw_decision"?"アイテム勝負は引き分け。続行するか、ここで終えるか。":"同じ部屋へ辿り着いた。";
-  $("drawActions").classList.toggle("hidden",S.game.status!=="draw_decision");
+  const m=me(),op=opponent();
+  $("myItemReveal").textContent=itemName(m?.item_id);
+  $("opItemReveal").textContent=itemName(op?.item_id);
+
+  const isDraw=S.game.status==="draw_decision";
+  const isFinished=S.game.status==="finished";
+  const hasWinner=!!S.game.winner_role;
+
+  if(isDraw){
+    $("encounterTitle").textContent="遭遇 — DRAW";
+    $("encounterText").textContent="同じ部屋に辿り着いた。アイテム勝負は引き分け。";
+  }else if(isFinished&&hasWinner){
+    $("encounterTitle").textContent="遭遇";
+    $("encounterText").textContent=ROLE_NAME[S.game.winner_role]+"の勝利。ここから先は移動できません。";
+  }else if(isFinished){
+    $("encounterTitle").textContent="遭遇 — GAME END";
+    $("encounterText").textContent=S.game.result_text||"ゲームはここで終了した。";
+  }else{
+    $("encounterTitle").textContent="遭遇";
+    $("encounterText").textContent="同じ部屋に辿り着いた。ここから先は二人の会話だけが残る。";
+  }
+
+  $("drawActions").classList.toggle("hidden",!isDraw);
+
+  const iAmWinner=isFinished&&hasWinner&&S.myRole===S.game.winner_role;
+  $("winnerEndActions").classList.toggle("hidden",!iAmWinner);
+  $("winnerWaiting").classList.toggle("hidden",!(isFinished&&hasWinner&&!iAmWinner));
+
   const myContinue=S.myRole==="runner"?S.game.runner_continue:S.game.hunter_continue;
-  $("continueBtn").disabled=myContinue===true;$("endDrawBtn").disabled=myContinue===false;
-  renderEncounterChats()
+  $("continueBtn").disabled=myContinue===true;
+  $("endDrawBtn").disabled=myContinue===false;
+
+  renderEncounterChats();
 }
 function encounterMessages(){return S.messages.filter(x=>x.channel==="encounter")}
 function chatHtml(){return encounterMessages().map(x=>`<div class="msg ${x.role===S.myRole?"mine":""}"><small>${escapeHtml(x.player_name)}</small>${escapeHtml(x.message)}</div>`).join("")||'<div class="tiny">まだ会話はない。</div>'}
@@ -698,8 +836,8 @@ async function drawChoice(cont){
   }else if(a===true&&b===true){
     const [ra,rh]=pickStarts();
     await Promise.all([
-      supabase.from("chase_players").update({current_room:ra,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role","runner"),
-      supabase.from("chase_players").update({current_room:rh,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role","hunter")
+      supabase.from("chase_players").update({current_room:ra,moving_to:null,move_started_at:null,move_complete_at:new Date().toISOString()}).eq("game_id",S.game.id).eq("role","runner"),
+      supabase.from("chase_players").update({current_room:rh,moving_to:null,move_started_at:null,move_complete_at:new Date().toISOString()}).eq("game_id",S.game.id).eq("role","hunter")
     ]);
     await supabase.from("chase_games").update({status:"playing",runner_continue:null,hunter_continue:null,encounter_room:null,updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","draw_decision");
     await logSystem("両者が続行を選択。二人は再び離れた部屋へ放たれた。");
@@ -707,11 +845,18 @@ async function drawChoice(cont){
 }
 function renderResult(){
   $("resultTitle").textContent=S.game.winner_role?ROLE_NAME[S.game.winner_role]+" WIN":"GAME END";
-  $("resultText").textContent=S.game.result_text||"ゲーム終了。";renderEncounterChats();
-  $("resultChatPanel").classList.toggle("hidden",!S.game.encounter_room)
+  $("resultText").textContent=S.game.result_text||"ゲーム終了。";
+  renderEncounterChats();
+  $("resultChatPanel").classList.toggle("hidden",!S.game.encounter_room);
+  const iAmWinner=!!S.game.winner_role&&S.myRole===S.game.winner_role;
+  $("newGameBtn").classList.toggle("hidden",!iAmWinner);
 }
 async function newGame(){
   if(S.game.status!=="finished")return;
+  if(S.game.winner_role && S.myRole!==S.game.winner_role){
+    toast("ゲームを終了できるのは勝者だけです。");
+    return;
+  }
   await supabase.from("chase_games").update({active:false,updated_at:new Date().toISOString()}).eq("id",S.game.id);
   sessionStorage.removeItem(TAB_PLAYER_KEY);
   location.reload()
@@ -744,7 +889,10 @@ document.querySelectorAll("[data-item]").forEach(b=>b.onclick=()=>{S.selectedIte
 $("lockItemBtn").onclick=chooseItem;$("readyBtn").onclick=ready;
 $("soloSend").onclick=sendMonologue;$("soloInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendMonologue()});
 $("encounterSend").onclick=()=>sendEncounter("encounterInput");$("resultSend").onclick=()=>sendEncounter("resultInput");
-$("continueBtn").onclick=()=>drawChoice(true);$("endDrawBtn").onclick=()=>drawChoice(false);$("newGameBtn").onclick=newGame;
+$("continueBtn").onclick=()=>drawChoice(true);
+$("endDrawBtn").onclick=()=>drawChoice(false);
+$("winnerEndBtn").onclick=newGame;
+$("newGameBtn").onclick=newGame;
 $("spectateBtn").onclick=()=>{S.spectator=true;render();show("spectateScreen")};
 
 boot();

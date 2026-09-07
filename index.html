@@ -239,6 +239,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 const GAME_MS = 180000;
 const MOVE_MIN = 5000, MOVE_MAX = 8000;
+
+// 自動リセット
+// 開始前：最後の操作から2分
+// 開始後：最後の操作から5分
+const PRE_GAME_IDLE_RESET_MS = 2 * 60 * 1000;
+const POST_GAME_IDLE_RESET_MS = 5 * 60 * 1000;
+const STALE_CHECK_INTERVAL_MS = 10 * 1000;
 const ROOM_NAMES = {
   "arena":"中央闘技場","portrait-gallery":"肖像回廊","study":"書斎","library":"図書室","reception-room":"応接室",
   "lounge":"ラウンジ","billiards-room":"ビリヤード室","bar":"酒場","dining-room":"食堂","kitchen":"厨房",
@@ -287,11 +294,15 @@ const ITEMS = {
 const ROLE_NAME={runner:"逃亡者",hunter:"追撃者"};
 
 const TAB_PLAYER_KEY = "ec_chase_tab_player_key";
-let tabPlayerKey = sessionStorage.getItem(TAB_PLAYER_KEY);
-if (!tabPlayerKey) {
-  tabPlayerKey = crypto.randomUUID();
-  sessionStorage.setItem(TAB_PLAYER_KEY, tabPlayerKey);
+
+function createTabPlayerKey(){
+  const key = crypto.randomUUID();
+  sessionStorage.setItem(TAB_PLAYER_KEY, key);
+  return key;
 }
+
+let tabPlayerKey = sessionStorage.getItem(TAB_PLAYER_KEY);
+if (!tabPlayerKey) tabPlayerKey = createTabPlayerKey();
 
 const S = {
   game:null,
@@ -309,6 +320,8 @@ const S = {
   realtime:null,
   tick:null,
   moveTimer:null,
+  staleTimer:null,
+  resetting:false,
   busy:false
 };
 
@@ -328,11 +341,128 @@ function itemName(id){return ITEMS[id]?.name||"—"}
 function adjacent(a,b){return !!(a&&b&&roomGraph[a]?.includes(b))}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 
+
+function latestActivityMs(){
+  if(!S.game) return 0;
+
+  const times = [];
+
+  if(S.game.updated_at) times.push(new Date(S.game.updated_at).getTime());
+  if(S.game.created_at) times.push(new Date(S.game.created_at).getTime());
+  if(S.game.started_at) times.push(new Date(S.game.started_at).getTime());
+
+  for(const p of S.players || []){
+    if(p.joined_at) times.push(new Date(p.joined_at).getTime());
+    if(p.move_started_at) times.push(new Date(p.move_started_at).getTime());
+    if(p.move_complete_at) times.push(new Date(p.move_complete_at).getTime());
+  }
+
+  for(const m of S.messages || []){
+    if(m.created_at) times.push(new Date(m.created_at).getTime());
+  }
+
+  return times.filter(Number.isFinite).reduce((a,b)=>Math.max(a,b),0);
+}
+
+function hasProtectedEncounterChat(){
+  if(!S.game?.started_at || !S.game?.ends_at || !S.game?.encounter_room) return false;
+
+  const started = new Date(S.game.started_at).getTime();
+  const deadline = new Date(S.game.ends_at).getTime();
+
+  // 3分の追跡時間内に遭遇後チャットが1件でも発生したゲームは
+  // 自動リセットしない。
+  return (S.messages || []).some(m => {
+    if(m.channel !== "encounter" || !m.created_at) return false;
+    const t = new Date(m.created_at).getTime();
+    return t >= started && t <= deadline;
+  });
+}
+
+async function touchGame(){
+  if(!S.game?.id || S.resetting) return;
+  const nowIso = new Date().toISOString();
+  const {error} = await supabase
+    .from("chase_games")
+    .update({updated_at:nowIso})
+    .eq("id",S.game.id)
+    .eq("active",true);
+  if(error) console.warn("touchGame:",error);
+}
+
+async function resetStaleGame(reason){
+  if(!S.game?.id || S.resetting) return;
+  S.resetting = true;
+
+  try{
+    const oldId = S.game.id;
+
+    await supabase
+      .from("chase_games")
+      .update({
+        active:false,
+        status:"finished",
+        result_text:reason,
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",oldId)
+      .eq("active",true);
+
+    // このタブも古い参加者情報を捨て、新しいゲームへ入れる状態にする。
+    S.myRole = null;
+    S.selectedRole = null;
+    S.selectedItem = null;
+    S.myKey = createTabPlayerKey();
+    $("nameInput").value = "";
+
+    if(S.realtime){
+      await supabase.removeChannel(S.realtime);
+      S.realtime = null;
+    }
+
+    S.game = await ensureGame();
+    await refresh();
+    subscribe();
+    show("roleScreen");
+    toast("放置されたゲームを自動リセットしました。");
+  }catch(e){
+    console.error("auto reset failed:",e);
+  }finally{
+    S.resetting = false;
+  }
+}
+
+async function checkStaleGame(){
+  if(!S.game || S.resetting || !S.game.active) return;
+
+  // 遭遇して、3分以内に遭遇チャットが動いたゲームは保護。
+  if(hasProtectedEncounterChat()) return;
+
+  const status = S.game.status;
+  const last = latestActivityMs();
+  if(!last) return;
+
+  const idle = Date.now() - last;
+
+  const preGameStatuses = new Set(["waiting","item_select","ready"]);
+  if(preGameStatuses.has(status) && idle >= PRE_GAME_IDLE_RESET_MS){
+    await resetStaleGame("ゲーム開始前に2分間操作がなかったため、自動リセットしました。");
+    return;
+  }
+
+  // ゲーム開始後の状態。finished も、遭遇チャット保護がない場合は
+  // 放置された旧ゲームとして5分後に片付ける。
+  const postGameStatuses = new Set(["playing","encounter","draw_decision","finished"]);
+  if(postGameStatuses.has(status) && S.game.started_at && idle >= POST_GAME_IDLE_RESET_MS){
+    await resetStaleGame("ゲーム開始後に5分間操作がなかったため、自動リセットしました。");
+  }
+}
+
 async function ensureGame(){
   let {data,error}=await supabase.from("chase_games").select("*").eq("active",true).order("created_at",{ascending:false}).limit(1);
   if(error) throw error;
   if(data?.[0]) return data[0];
-  const ins=await supabase.from("chase_games").insert({active:true,status:"waiting"}).select().single();
+  const ins=await supabase.from("chase_games").insert({active:true,status:"waiting",updated_at:new Date().toISOString()}).select().single();
   if(ins.error){
     const retry=await supabase.from("chase_games").select("*").eq("active",true).order("created_at",{ascending:false}).limit(1).single();
     if(retry.error) throw ins.error;
@@ -376,6 +506,8 @@ async function boot(){
     }
     render();
     S.tick=setInterval(tick,200);
+    S.staleTimer=setInterval(checkStaleGame,STALE_CHECK_INTERVAL_MS);
+    await checkStaleGame();
   }catch(e){console.error(e);setStatus(false,"設定が必要");show("roleScreen");toast("Supabase設定SQLを先に実行してください")}
 }
 function render(){
@@ -410,7 +542,7 @@ function render(){
 async function maybeAdvance(){
   const r=player("runner"),h=player("hunter");if(!r||!h)return;
   if(S.game.status==="waiting"){
-    await supabase.from("chase_games").update({status:"item_select"}).eq("id",S.game.id).eq("status","waiting");
+    await supabase.from("chase_games").update({status:"item_select",updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","waiting");
     return;
   }
   if(S.game.status==="item_select" && r.item_id && h.item_id){
@@ -424,7 +556,7 @@ async function maybeAdvance(){
   }
   if((S.game.status==="item_select"||S.game.status==="ready") && r.item_id&&h.item_id&&r.ready&&h.ready){
     const start=new Date(Date.now()+2500).toISOString(), end=new Date(Date.now()+2500+GAME_MS).toISOString();
-    await supabase.from("chase_games").update({status:"playing",started_at:start,ends_at:end,result_text:null,winner_role:null}).eq("id",S.game.id).in("status",["item_select","ready"]);
+    await supabase.from("chase_games").update({status:"playing",started_at:start,ends_at:end,result_text:null,winner_role:null,updated_at:new Date().toISOString()}).eq("id",S.game.id).in("status",["item_select","ready"]);
     await logSystem("二人が館へ放たれた。三分間の追跡が始まる。");
   }
 }
@@ -442,15 +574,21 @@ async function join(){
   const role=S.selectedRole;if(!role)return;
   const res=await supabase.from("chase_players").insert({game_id:S.game.id,role,player_name:name,player_key:S.myKey});
   if(res.error){$("nameError").textContent=res.error.code==="23505"?"その役割はすでに選ばれています。":"参加できませんでした。";await refresh();return}
-  S.myRole=role;await logSystem(name+" が"+ROLE_NAME[role]+"として館へ入った。");await refresh();await maybeAdvance()
+  S.myRole=role;
+  await touchGame();
+  await logSystem(name+" が"+ROLE_NAME[role]+"として館へ入った。");
+  await refresh();
+  await maybeAdvance()
 }
 async function chooseItem(){
   if(!S.selectedItem)return;
   await supabase.from("chase_players").update({item_id:S.selectedItem}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+  await touchGame();
   await refresh();await maybeAdvance()
 }
 async function ready(){
   await supabase.from("chase_players").update({ready:true}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+  await touchGame();
   await refresh();await maybeAdvance()
 }
 function tick(){
@@ -466,7 +604,7 @@ function tick(){
 async function timeoutRunner(){
   S.busy=true;
   try{
-    await supabase.from("chase_games").update({status:"finished",winner_role:"runner",result_text:"三分間、追撃者と遭遇せず逃げ切った。"}).eq("id",S.game.id).eq("status","playing");
+    await supabase.from("chase_games").update({status:"finished",winner_role:"runner",result_text:"三分間、追撃者と遭遇せず逃げ切った。",updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","playing");
     await logSystem("TIME UP。逃亡者が三分間を逃げ切った。");
   }finally{S.busy=false}
 }
@@ -485,6 +623,7 @@ async function moveTo(dest){
   const m=me();if(!m||m.moving_to||S.game.status!=="playing"||!roomGraph[m.current_room]?.includes(dest))return;
   const ms=Math.floor(MOVE_MIN+Math.random()*(MOVE_MAX-MOVE_MIN+1));const due=new Date(Date.now()+ms).toISOString();
   await supabase.from("chase_players").update({moving_to:dest,move_started_at:new Date().toISOString(),move_complete_at:due}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+  await touchGame();
   await logSystem(m.player_name+" が "+roomName(dest)+" へ向かった。");await refresh()
 }
 async function finishMoveIfDue(){
@@ -496,6 +635,7 @@ async function finishMoveIfDue(){
   try{
     const dest=m.moving_to;
     await supabase.from("chase_players").update({current_room:dest,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+    await touchGame();
     await refresh();await checkEncounter();
   }finally{S.busy=false}
 }
@@ -504,10 +644,10 @@ async function checkEncounter(){
   const r=player("runner"),h=player("hunter");if(!r||!h||r.moving_to||h.moving_to||!r.current_room||r.current_room!==h.current_room)return;
   const winner=compareItems(r.item_id,h.item_id);
   if(winner==="draw"){
-    await supabase.from("chase_games").update({status:"draw_decision",encounter_room:r.current_room,runner_continue:null,hunter_continue:null}).eq("id",S.game.id).eq("status","playing");
+    await supabase.from("chase_games").update({status:"draw_decision",encounter_room:r.current_room,runner_continue:null,hunter_continue:null,updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","playing");
     await logSystem(roomName(r.current_room)+"で二人が遭遇した。アイテム勝負は引き分け。");
   }else{
-    await supabase.from("chase_games").update({status:"finished",winner_role:winner,encounter_room:r.current_room,result_text:ROLE_NAME[winner]+"が遭遇時のアイテム勝負に勝った。"}).eq("id",S.game.id).eq("status","playing");
+    await supabase.from("chase_games").update({status:"finished",winner_role:winner,encounter_room:r.current_room,result_text:ROLE_NAME[winner]+"が遭遇時のアイテム勝負に勝った。",updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","playing");
     await logSystem(roomName(r.current_room)+"で二人が遭遇。"+ROLE_NAME[winner]+"の勝利。");
   }
 }
@@ -527,6 +667,7 @@ async function sendMonologue(){
   const audible=op&&!m.moving_to&&!op.moving_to&&adjacent(m.current_room,op.current_room)?op.role:null;
   input.value="";
   await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"monologue",role:S.myRole,player_name:m.player_name,message:text,room_id:m.current_room,audible_to:audible});
+  await touchGame();
 }
 function renderEncounter(){
   const m=me(),op=opponent();$("myItemReveal").textContent=itemName(m?.item_id);$("opItemReveal").textContent=itemName(op?.item_id);
@@ -544,14 +685,15 @@ function renderEncounterChats(){
 }
 async function sendEncounter(inputId){
   const input=$(inputId),text=input.value.trim();if(!text||!me())return;input.value="";
-  await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"encounter",role:S.myRole,player_name:me().player_name,message:text,room_id:S.game.encounter_room||me().current_room})
+  await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"encounter",role:S.myRole,player_name:me().player_name,message:text,room_id:S.game.encounter_room||me().current_room});
+  await touchGame();
 }
 async function drawChoice(cont){
   const field=S.myRole==="runner"?"runner_continue":"hunter_continue";
-  await supabase.from("chase_games").update({[field]:cont}).eq("id",S.game.id).eq("status","draw_decision");
+  await supabase.from("chase_games").update({[field]:cont,updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","draw_decision");
   await refresh();const a=S.game.runner_continue,b=S.game.hunter_continue;
   if(a===false||b===false){
-    await supabase.from("chase_games").update({status:"finished",winner_role:null,result_text:"引き分け後、どちらか一方が終了を選択した。"}).eq("id",S.game.id).eq("status","draw_decision");
+    await supabase.from("chase_games").update({status:"finished",winner_role:null,result_text:"引き分け後、どちらか一方が終了を選択した。",updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","draw_decision");
     await logSystem("引き分け。どちらか一方が終了を選び、ゲームはここで閉じられた。");
   }else if(a===true&&b===true){
     const [ra,rh]=pickStarts();
@@ -559,7 +701,7 @@ async function drawChoice(cont){
       supabase.from("chase_players").update({current_room:ra,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role","runner"),
       supabase.from("chase_players").update({current_room:rh,moving_to:null,move_started_at:null,move_complete_at:null}).eq("game_id",S.game.id).eq("role","hunter")
     ]);
-    await supabase.from("chase_games").update({status:"playing",runner_continue:null,hunter_continue:null,encounter_room:null}).eq("id",S.game.id).eq("status","draw_decision");
+    await supabase.from("chase_games").update({status:"playing",runner_continue:null,hunter_continue:null,encounter_room:null,updated_at:new Date().toISOString()}).eq("id",S.game.id).eq("status","draw_decision");
     await logSystem("両者が続行を選択。二人は再び離れた部屋へ放たれた。");
   }
 }
@@ -570,12 +712,14 @@ function renderResult(){
 }
 async function newGame(){
   if(S.game.status!=="finished")return;
-  await supabase.from("chase_games").update({active:false}).eq("id",S.game.id);
+  await supabase.from("chase_games").update({active:false,updated_at:new Date().toISOString()}).eq("id",S.game.id);
   sessionStorage.removeItem(TAB_PLAYER_KEY);
   location.reload()
 }
 async function logSystem(message){
-  if(!S.game)return;await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"system",message,player_name:"EL CAPOTE"})
+  if(!S.game)return;
+  await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"system",message,player_name:"EL CAPOTE"});
+  await touchGame();
 }
 function renderSpectator(){
   if(!S.game)return;const r=player("runner"),h=player("hunter");

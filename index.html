@@ -139,6 +139,18 @@
       color:#ff5555;
       font-size:13px;
     }
+    #specTrapAlert{
+      margin-top:12px;
+      border-width:2px;
+      color:#ffd6d6;
+      background:linear-gradient(145deg,rgba(130,8,18,.52),rgba(45,8,12,.72));
+      font-size:12px;
+    }
+    #specTrapAlert strong{
+      color:#ff4b4b;
+      font-size:15px;
+      letter-spacing:.03em;
+    }
     .trap-countdown{
       color:#ffd36a;
       font-weight:900;
@@ -619,7 +631,8 @@
           </div>
         </div>
 
-        <div class="adjacent-alert hidden" id="specEncounterAlert">遭遇！ アイテムが公開された。</div>
+        <div class="trap-alert hidden" id="specTrapAlert"></div>
+        <div class="adjacent-alert hidden" id="specEncounterAlert">遭遇！</div>
       </div>
       <div class="panel"><p class="eyebrow">LIVE LOG</p><h3>すべての声と動き</h3><div class="log" id="spectateLog"></div></div>
       <button class="btn secondary" id="leaveSpectateBtn">観戦をやめる</button>
@@ -1478,7 +1491,7 @@ function renderChase(){
   if(S.myRole==="hunter" && trapState.trap){
     hunterTrapAlert.classList.remove("hidden");
     hunterTrapAlert.innerHTML=
-      '<strong>逃亡者がトラップにかかった！</strong>'+
+      '<strong>'+escapeHtml(player("runner")?.player_name||"逃亡者")+'がトラップにかかった！</strong>'+
       escapeHtml(trapState.trap.trap.hunter)+
       '<br>現在地：<b>'+escapeHtml(roomName(trapState.trap.room_id))+'</b>';
 
@@ -2013,7 +2026,27 @@ function renderSpectator(){
 
     $("specRunnerItem").textContent=(itemsRevealed&&r?.item_id)?"ITEM "+itemName(r.item_id):"ITEM ?";
     $("specHunterItem").textContent=(itemsRevealed&&h?.item_id)?"ITEM "+itemName(h.item_id):"ITEM ?";
-    $("specEncounterAlert").classList.toggle("hidden",!didEncounter);
+
+    if(didEncounter){
+      $("specEncounterAlert").textContent=itemsRevealed
+        ?"アイテムが公開された！"
+        :"遭遇！";
+    }
+
+    const spectatorTrap=runnerTrapState();
+  const specTrapAlert=$("specTrapAlert");
+
+  if(spectatorTrap.trap){
+    specTrapAlert.classList.remove("hidden");
+    specTrapAlert.innerHTML=
+      '<strong>'+escapeHtml(player("runner")?.player_name||"逃亡者")+'がトラップにかかった！</strong>'+
+      escapeHtml(spectatorTrap.trap.trap.text)+
+      '<br>現在地：<b>'+escapeHtml(roomName(spectatorTrap.trap.room_id))+'</b>';
+  }else{
+    specTrapAlert.classList.add("hidden");
+  }
+
+  $("specEncounterAlert").classList.toggle("hidden",!didEncounter);
     try{renderChaseMap()}catch(e){console.error("spectator map render:",e)}
     try{renderMapMonologues()}catch(e){console.error("spectator monologue render:",e)}
     const left=S.game.ends_at?new Date(S.game.ends_at).getTime()-rn():GAME_MS;$("specTimer").textContent=S.game.status==="finished"?"00:00":fmt(left);

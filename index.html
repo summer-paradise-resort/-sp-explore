@@ -770,8 +770,7 @@ const RUNNER_TRAPS = [
   }
 ];
 
-const RUNNER_TRAP_CHANCE = 0.50;
-const RUNNER_TRAP_GUARANTEE_AFTER = 2;
+const RUNNER_TRAP_CHANCE = 0.35;
 const RUNNER_TRAP_LOCK_MS = 10 * 1000;
 const TRAP_PREFIX = "TRAP｜";
 
@@ -808,7 +807,6 @@ const S = {
   resetting:false,
   interactionBusy:false,
   timeoutCommitted:false,
-  runnerTrapMisses:0,
   busy:false
 };
 
@@ -916,11 +914,8 @@ async function maybeTriggerRunnerTrap(roomId){
   const runner=me();
   if(!runner)return false;
 
-  S.runnerTrapMisses=(S.runnerTrapMisses||0)+1;
-
-  const guaranteed=S.runnerTrapMisses>=RUNNER_TRAP_GUARANTEE_AFTER;
-  const shouldTrigger=guaranteed || Math.random()<RUNNER_TRAP_CHANCE;
-
+  // 各部屋への到着ごとに35%で独立判定。
+  const shouldTrigger=Math.random()<RUNNER_TRAP_CHANCE;
   if(!shouldTrigger)return false;
 
   const trap=RUNNER_TRAPS[Math.floor(Math.random()*RUNNER_TRAPS.length)];
@@ -950,7 +945,6 @@ async function maybeTriggerRunnerTrap(roomId){
     S.messages.push(data);
   }
 
-  S.runnerTrapMisses=0;
   await touchGame();
 
   toast("TRAP！ "+trap.text);
@@ -1300,7 +1294,6 @@ async function maybeAdvance(){
       updated_at:new Date().toISOString()
     }).eq("id",S.game.id).eq("status","ready");
 
-    S.runnerTrapMisses=0;
     await logSystem("二人が館へ放たれた。三分間の追跡が始まる。");
   }
 }
@@ -1952,6 +1945,41 @@ function renderChaseMap(){
 
   drawPlayer(rp,r,"runner");
   drawPlayer(hp,h,"hunter");
+}
+
+function latestMonologueFor(role){
+  return S.messages
+    .filter(m=>m.channel==="monologue" && m.role===role)
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
+    .at(-1) || null;
+}
+
+function renderMapMonologues(){
+  const r=player("runner");
+  const h=player("hunter");
+  const rm=latestMonologueFor("runner");
+  const hm=latestMonologueFor("hunter");
+
+  const runnerMeta=$("mapRunnerMeta");
+  const hunterMeta=$("mapHunterMeta");
+  const runnerText=$("mapRunnerMonologue");
+  const hunterText=$("mapHunterMonologue");
+
+  if(!runnerMeta || !hunterMeta || !runnerText || !hunterText)return;
+
+  runnerMeta.textContent=r
+    ? (r.player_name+" / "+roomName(r.current_room))
+    : "逃亡者 未参加";
+
+  hunterMeta.textContent=h
+    ? (h.player_name+" / "+roomName(h.current_room))
+    : "追撃者 未参加";
+
+  runnerText.textContent=rm?.message || "まだ一言はない。";
+  hunterText.textContent=hm?.message || "まだ一言はない。";
+
+  runnerText.classList.toggle("empty",!rm);
+  hunterText.classList.toggle("empty",!hm);
 }
 
 function renderSpectator(){

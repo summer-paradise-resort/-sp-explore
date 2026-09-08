@@ -770,8 +770,8 @@ const RUNNER_TRAPS = [
   }
 ];
 
-const RUNNER_TRAP_CHANCE = 0.35;
-const RUNNER_TRAP_GUARANTEE_AFTER = 3;
+const RUNNER_TRAP_CHANCE = 0.50;
+const RUNNER_TRAP_GUARANTEE_AFTER = 2;
 const RUNNER_TRAP_LOCK_MS = 10 * 1000;
 const TRAP_PREFIX = "TRAP｜";
 
@@ -863,17 +863,28 @@ function latestRunnerTrap(){
   const runner=player("runner");
   if(!runner?.current_room)return null;
 
-  const arrival=runner.move_complete_at
-    ? new Date(runner.move_complete_at).getTime()
-    : (S.game?.started_at ? new Date(S.game.started_at).getTime() : 0);
-
-  return S.messages
+  // 現在の部屋について、最新のトラップだけを見る。
+  // created_at と move_complete_at の数百ms差で取りこぼさないよう、
+  // 厳密な >= 比較はしない。
+  const candidates=S.messages
     .map(parseTrapMessage)
     .filter(Boolean)
     .filter(x=>x.room_id===runner.current_room)
-    .filter(x=>new Date(x.created_at).getTime()>=arrival)
-    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
-    .at(-1) || null;
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  const latest=candidates.at(-1)||null;
+  if(!latest)return null;
+
+  // 直近の移動開始より前の古いトラップは無効。
+  const lastDeparture=runner.move_started_at
+    ? new Date(runner.move_started_at).getTime()
+    : 0;
+
+  if(lastDeparture && new Date(latest.created_at).getTime()<lastDeparture){
+    return null;
+  }
+
+  return latest;
 }
 
 function runnerTrapState(){
@@ -905,18 +916,6 @@ async function maybeTriggerRunnerTrap(roomId){
   const runner=me();
   if(!runner)return false;
 
-  const arrival=runner.move_complete_at
-    ? new Date(runner.move_complete_at).getTime()
-    : Date.now();
-
-  // 同じ到着に対して二重判定しない。
-  const already=S.messages
-    .map(parseTrapMessage)
-    .filter(Boolean)
-    .some(x=>x.room_id===roomId && new Date(x.created_at).getTime()>=arrival);
-
-  if(already)return false;
-
   S.runnerTrapMisses=(S.runnerTrapMisses||0)+1;
 
   const guaranteed=S.runnerTrapMisses>=RUNNER_TRAP_GUARANTEE_AFTER;
@@ -926,15 +925,19 @@ async function maybeTriggerRunnerTrap(roomId){
 
   const trap=RUNNER_TRAPS[Math.floor(Math.random()*RUNNER_TRAPS.length)];
 
-  const {error}=await supabase.from("chase_messages").insert({
-    game_id:S.game.id,
-    channel:"system",
-    role:"runner",
-    player_name:runner.player_name,
-    message:TRAP_PREFIX+trap.id+"｜"+trap.text,
-    room_id:roomId,
-    audible_to:"hunter"
-  });
+  const {data,error}=await supabase
+    .from("chase_messages")
+    .insert({
+      game_id:S.game.id,
+      channel:"system",
+      role:"runner",
+      player_name:runner.player_name,
+      message:TRAP_PREFIX+trap.id+"｜"+trap.text,
+      room_id:roomId,
+      audible_to:"hunter"
+    })
+    .select("*")
+    .single();
 
   if(error){
     console.error("trap insert failed:",error);
@@ -942,9 +945,22 @@ async function maybeTriggerRunnerTrap(roomId){
     return false;
   }
 
+  // Realtimeを待たず、その場でローカルにも反映。
+  if(data && !S.messages.some(m=>m.id===data.id)){
+    S.messages.push(data);
+  }
+
   S.runnerTrapMisses=0;
   await touchGame();
+
+  toast("TRAP！ "+trap.text);
+
+  // 逃亡者側ですぐTRAP表示を出す。
+  renderChase();
+
+  // 追撃者側へはRealtimeで届く。念のため最新状態も取得。
   await refresh();
+
   return true;
 }
 
@@ -1284,6 +1300,7 @@ async function maybeAdvance(){
       updated_at:new Date().toISOString()
     }).eq("id",S.game.id).eq("status","ready");
 
+    S.runnerTrapMisses=0;
     await logSystem("二人が館へ放たれた。三分間の追跡が始まる。");
   }
 }
@@ -1532,11 +1549,23 @@ async function finishMoveIfDue(){
   S.busy=true;
   try{
     const dest=m.moving_to;
-    await supabase.from("chase_players").update({current_room:dest,moving_to:null,move_started_at:null,move_complete_at:new Date().toISOString()}).eq("game_id",S.game.id).eq("role",S.myRole).eq("player_key",S.myKey);
+    const arrivedAt=new Date().toISOString();
+
+    await supabase.from("chase_players").update({
+      current_room:dest,
+      moving_to:null,
+      move_started_at:null,
+      move_complete_at:arrivedAt
+    })
+    .eq("game_id",S.game.id)
+    .eq("role",S.myRole)
+    .eq("player_key",S.myKey);
+
     await touchGame();
     await refresh();
 
-    if(S.myRole==="runner"){
+    // 逃亡者は到着直後に必ずここでトラップ判定。
+    if(S.myRole==="runner" && S.game.status==="playing"){
       await maybeTriggerRunnerTrap(dest);
     }
 

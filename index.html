@@ -807,6 +807,7 @@ const S = {
   resetting:false,
   interactionBusy:false,
   timeoutCommitted:false,
+  lastHunterTrapNoticeId:null,
   busy:false
 };
 
@@ -1294,6 +1295,7 @@ async function maybeAdvance(){
       updated_at:new Date().toISOString()
     }).eq("id",S.game.id).eq("status","ready");
 
+    S.lastHunterTrapNoticeId=null;
     await logSystem("二人が館へ放たれた。三分間の追跡が始まる。");
   }
 }
@@ -1479,6 +1481,19 @@ function renderChase(){
       '<strong>逃亡者がトラップにかかった！</strong>'+
       escapeHtml(trapState.trap.trap.hunter)+
       '<br>現在地：<b>'+escapeHtml(roomName(trapState.trap.room_id))+'</b>';
+
+    // 新しいトラップ通知を受け取った瞬間だけ、追撃者の画面を上へ戻す。
+    // 通常のRealtime更新ではスクロール位置を維持する。
+    const trapNoticeId=
+      trapState.trap.raw?.id ||
+      (trapState.trap.room_id+"|"+trapState.trap.created_at+"|"+trapState.trap.trap.id);
+
+    if(S.lastHunterTrapNoticeId!==trapNoticeId){
+      S.lastHunterTrapNoticeId=trapNoticeId;
+      requestAnimationFrame(()=>{
+        window.scrollTo({top:0,behavior:"smooth"});
+      });
+    }
   }else{
     hunterTrapAlert.classList.add("hidden");
   }

@@ -622,6 +622,7 @@
         <div class="adjacent-alert hidden" id="specEncounterAlert">遭遇！ アイテムが公開された。</div>
       </div>
       <div class="panel"><p class="eyebrow">LIVE LOG</p><h3>すべての声と動き</h3><div class="log" id="spectateLog"></div></div>
+      <button class="btn secondary" id="leaveSpectateBtn">観戦をやめる</button>
     </section>
   </main>
 </div>
@@ -769,7 +770,8 @@ const RUNNER_TRAPS = [
   }
 ];
 
-const RUNNER_TRAP_CHANCE = 0.30;
+const RUNNER_TRAP_CHANCE = 0.35;
+const RUNNER_TRAP_GUARANTEE_AFTER = 3;
 const RUNNER_TRAP_LOCK_MS = 10 * 1000;
 const TRAP_PREFIX = "TRAP｜";
 
@@ -806,6 +808,7 @@ const S = {
   resetting:false,
   interactionBusy:false,
   timeoutCommitted:false,
+  runnerTrapMisses:0,
   busy:false
 };
 
@@ -897,25 +900,33 @@ function runnerTrapState(){
 }
 
 async function maybeTriggerRunnerTrap(roomId){
-  if(S.myRole!=="runner" || !roomId || S.game.status!=="playing")return;
+  if(S.myRole!=="runner" || !roomId || S.game.status!=="playing")return false;
 
   const runner=me();
-  if(!runner)return;
+  if(!runner)return false;
 
   const arrival=runner.move_complete_at
     ? new Date(runner.move_complete_at).getTime()
     : Date.now();
 
+  // 同じ到着に対して二重判定しない。
   const already=S.messages
     .map(parseTrapMessage)
     .filter(Boolean)
     .some(x=>x.room_id===roomId && new Date(x.created_at).getTime()>=arrival);
 
-  if(already || Math.random()>=RUNNER_TRAP_CHANCE)return;
+  if(already)return false;
+
+  S.runnerTrapMisses=(S.runnerTrapMisses||0)+1;
+
+  const guaranteed=S.runnerTrapMisses>=RUNNER_TRAP_GUARANTEE_AFTER;
+  const shouldTrigger=guaranteed || Math.random()<RUNNER_TRAP_CHANCE;
+
+  if(!shouldTrigger)return false;
 
   const trap=RUNNER_TRAPS[Math.floor(Math.random()*RUNNER_TRAPS.length)];
 
-  await supabase.from("chase_messages").insert({
+  const {error}=await supabase.from("chase_messages").insert({
     game_id:S.game.id,
     channel:"system",
     role:"runner",
@@ -925,8 +936,16 @@ async function maybeTriggerRunnerTrap(roomId){
     audible_to:"hunter"
   });
 
+  if(error){
+    console.error("trap insert failed:",error);
+    toast("トラップ処理に失敗しました。");
+    return false;
+  }
+
+  S.runnerTrapMisses=0;
   await touchGame();
   await refresh();
+  return true;
 }
 
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
@@ -1188,7 +1207,11 @@ function render(){
     b.disabled=taken&&!mine;b.classList.toggle("selected",S.selectedRole===b.dataset.role);
   });
 
-  if(S.spectator){renderSpectator();show("spectateScreen");return}
+  if(S.spectator){
+    show("spectateScreen");
+    try{renderSpectator()}catch(e){console.error("spectator refresh:",e)}
+    return;
+  }
   if(!S.myRole){
     if(document.querySelector(".screen.active")?.id==="nameScreen") return;
     show("roleScreen");return;
@@ -1350,8 +1373,7 @@ function tick(){
     finishMoveIfDue();
   }
   if(S.spectator) {
-    renderSpectator();
-    renderChaseMap();
+    try{renderSpectator()}catch(e){console.error("spectator tick:",e)}
   }else if(S.game.status==="playing" && S.myRole){
     renderChase();
   }
@@ -1904,57 +1926,62 @@ function renderChaseMap(){
 }
 
 function renderSpectator(){
-  if(!S.game)return;const r=player("runner"),h=player("hunter");
-  $("specRunnerName").textContent=r?.player_name||"待機中";$("specHunterName").textContent=h?.player_name||"待機中";
-  $("specRunnerRoom").textContent=r?(r.moving_to?roomName(r.current_room)+" → "+roomName(r.moving_to):roomName(r.current_room)):"—";
-  $("specHunterRoom").textContent=h?(h.moving_to?roomName(h.current_room)+" → "+roomName(h.moving_to):roomName(h.current_room)):"—";
-  // 「遭遇表示」と「アイテム公開条件」は分ける。
-  // 遭遇表示は実際に同じ部屋で遭遇した時だけ。
-  // アイテムは、遭遇時またはゲーム終了後に公開する。
-  const didEncounter=!!S.game.encounter_room;
-  const bothPicked=!!(r?.item_id&&h?.item_id);
-  const itemsRevealed=bothPicked || S.game.status==="draw_decision" || S.game.status==="finished";
+  try{
 
-  $("specRunnerItem").textContent=(itemsRevealed&&r?.item_id)?"ITEM "+itemName(r.item_id):"ITEM ?";
-  $("specHunterItem").textContent=(itemsRevealed&&h?.item_id)?"ITEM "+itemName(h.item_id):"ITEM ?";
-  $("specEncounterAlert").classList.toggle("hidden",!didEncounter);
-  renderChaseMap();
-  renderMapMonologues();
-  const left=S.game.ends_at?new Date(S.game.ends_at).getTime()-rn():GAME_MS;$("specTimer").textContent=S.game.status==="finished"?"00:00":fmt(left);
-  // 過去の同一SYSTEMメッセージがDBに複数残っていても、表示は1件だけにする。
-  const seenSystem=new Set();
-  const visibleMessages=S.messages.slice().reverse().filter(x=>{
-    if(x.channel!=="system") return true;
-    if((x.message||"").startsWith(TRAP_PREFIX)) return false;
-    const key=x.message||"";
-    if(seenSystem.has(key)) return false;
-    seenSystem.add(key);
-    return true;
-  });
+    if(!S.game)return;const r=player("runner"),h=player("hunter");
+    $("specRunnerName").textContent=r?.player_name||"待機中";$("specHunterName").textContent=h?.player_name||"待機中";
+    $("specRunnerRoom").textContent=r?(r.moving_to?roomName(r.current_room)+" → "+roomName(r.moving_to):roomName(r.current_room)):"—";
+    $("specHunterRoom").textContent=h?(h.moving_to?roomName(h.current_room)+" → "+roomName(h.moving_to):roomName(h.current_room)):"—";
+    // 「遭遇表示」と「アイテム公開条件」は分ける。
+    // 遭遇表示は実際に同じ部屋で遭遇した時だけ。
+    // アイテムは、遭遇時またはゲーム終了後に公開する。
+    const didEncounter=!!S.game.encounter_room;
+    const bothPicked=!!(r?.item_id&&h?.item_id);
+    const itemsRevealed=bothPicked || S.game.status==="draw_decision" || S.game.status==="finished";
 
-  let logHtml=visibleMessages.map(x=>{
-    const t=new Date(x.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    const prefix=x.channel==="monologue"?"独り言":x.channel==="encounter"?"会話":"SYSTEM";
-    const where=x.room_id?" / "+roomName(x.room_id):"";
-    return `<div class="logrow"><time>${t}</time><strong>${escapeHtml(prefix)}</strong> ${escapeHtml(x.player_name||"")} ${escapeHtml(where)}<br>${escapeHtml(x.message)}</div>`
-  }).join("");
+    $("specRunnerItem").textContent=(itemsRevealed&&r?.item_id)?"ITEM "+itemName(r.item_id):"ITEM ?";
+    $("specHunterItem").textContent=(itemsRevealed&&h?.item_id)?"ITEM "+itemName(h.item_id):"ITEM ?";
+    $("specEncounterAlert").classList.toggle("hidden",!didEncounter);
+    try{renderChaseMap()}catch(e){console.error("spectator map render:",e)}
+    try{renderMapMonologues()}catch(e){console.error("spectator monologue render:",e)}
+    const left=S.game.ends_at?new Date(S.game.ends_at).getTime()-rn():GAME_MS;$("specTimer").textContent=S.game.status==="finished"?"00:00":fmt(left);
+    // 過去の同一SYSTEMメッセージがDBに複数残っていても、表示は1件だけにする。
+    const seenSystem=new Set();
+    const visibleMessages=S.messages.slice().reverse().filter(x=>{
+      if(x.channel!=="system") return true;
+      if((x.message||"").startsWith(TRAP_PREFIX)) return false;
+      const key=x.message||"";
+      if(seenSystem.has(key)) return false;
+      seenSystem.add(key);
+      return true;
+    });
 
-  // 遭遇せずに逃亡者がTIME UP勝利した時だけ、結果から1件だけ生成する。
-  const escapedByTime =
-    S.game.status==="finished" &&
-    S.game.winner_role==="runner" &&
-    !S.game.encounter_room &&
-    S.game.result_text==="三分間、追撃者と遭遇せず逃げ切った。";
+    let logHtml=visibleMessages.map(x=>{
+      const t=new Date(x.created_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const prefix=x.channel==="monologue"?"独り言":x.channel==="encounter"?"会話":"SYSTEM";
+      const where=x.room_id?" / "+roomName(x.room_id):"";
+      return `<div class="logrow"><time>${t}</time><strong>${escapeHtml(prefix)}</strong> ${escapeHtml(x.player_name||"")} ${escapeHtml(where)}<br>${escapeHtml(x.message)}</div>`
+    }).join("");
 
-  if(escapedByTime){
-    const time=S.game.ends_at
-      ? new Date(S.game.ends_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"})
-      : "";
-    const synthetic=`<div class="logrow"><time>${escapeHtml(time)}</time><strong>SYSTEM</strong> EL CAPOTE<br>TIME UP。逃亡者が三分間を逃げ切った。</div>`;
-    logHtml=synthetic+logHtml;
+    // 遭遇せずに逃亡者がTIME UP勝利した時だけ、結果から1件だけ生成する。
+    const escapedByTime =
+      S.game.status==="finished" &&
+      S.game.winner_role==="runner" &&
+      !S.game.encounter_room &&
+      S.game.result_text==="三分間、追撃者と遭遇せず逃げ切った。";
+
+    if(escapedByTime){
+      const time=S.game.ends_at
+        ? new Date(S.game.ends_at).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit",second:"2-digit"})
+        : "";
+      const synthetic=`<div class="logrow"><time>${escapeHtml(time)}</time><strong>SYSTEM</strong> EL CAPOTE<br>TIME UP。逃亡者が三分間を逃げ切った。</div>`;
+      logHtml=synthetic+logHtml;
+    }
+
+    $("spectateLog").innerHTML=logHtml||'<div class="tiny">まだ記録はありません。</div>'
+  }catch(e){
+    console.error("renderSpectator:",e);
   }
-
-  $("spectateLog").innerHTML=logHtml||'<div class="tiny">まだ記録はありません。</div>'
 }
 
 document.querySelectorAll("[data-role]").forEach(b=>b.addEventListener("click",()=>{S.selectedRole=b.dataset.role;$("chosenRoleText").textContent=ROLE_NAME[S.selectedRole]+"として参加します。";show("nameScreen")}));
@@ -1984,7 +2011,17 @@ $("duelEndDrawBtn").onclick=()=>drawChoice(false);
 $("duelWinnerEndBtn").onclick=newGame;
 
 $("newGameBtn").onclick=newGame;
-$("spectateBtn").onclick=()=>{S.spectator=true;render();show("spectateScreen")};
+$("spectateBtn").onclick=()=>{
+  S.spectator=true;
+  S.myRole=null;
+  show("spectateScreen");
+  try{renderSpectator()}catch(e){console.error("open spectator:",e)}
+};
+$("leaveSpectateBtn").onclick=()=>{
+  S.spectator=false;
+  show("roleScreen");
+  render();
+};
 
 boot();
 </script>

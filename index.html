@@ -434,6 +434,8 @@
           <button class="choice" data-role="hunter"><span class="icon">⌖</span><strong>追撃者</strong><small>三分以内に遭遇し、アイテム勝負でも勝てば勝利。</small></button>
         </div>
         <button class="btn secondary" id="spectateBtn">観戦する</button>
+        <button class="btn danger" id="resetGameBtn">ゲームを全体リセットする</button>
+        <p class="tiny">誰でも操作できます。押すと現在のゲームを終了し、全員を新しいゲームの初期状態へ戻します。</p>
       </div>
     </section>
 
@@ -818,6 +820,8 @@ const S = {
   moveTimer:null,
   staleTimer:null,
   resetting:false,
+  switchingGame:false,
+  gameSwitchTimer:null,
   interactionBusy:false,
   timeoutCommitted:false,
   lastHunterTrapNoticeId:null,
@@ -1171,14 +1175,94 @@ async function ensureGame(){
   }
   return ins.data;
 }
+async function findNewestActiveGame(retries=12, delayMs=250){
+  for(let i=0;i<retries;i++){
+    const {data,error}=await supabase
+      .from("chase_games")
+      .select("*")
+      .eq("active",true)
+      .order("created_at",{ascending:false})
+      .limit(1);
+    if(error) throw error;
+    if(data?.[0]) return data[0];
+    if(i<retries-1) await new Promise(resolve=>setTimeout(resolve,delayMs));
+  }
+  return null;
+}
+
+function clearLocalPlayerState(){
+  S.myRole=null;
+  S.selectedRole=null;
+  S.selectedItem=null;
+  S.spectator=false;
+  S.timeoutCommitted=false;
+  S.lastHunterTrapNoticeId=null;
+  S.myKey=createTabPlayerKey();
+  $("nameInput").value="";
+}
+
+async function adoptActiveGame(oldGameId=S.game?.id){
+  if(S.switchingGame || S.resetting) return;
+  S.switchingGame=true;
+  try{
+    const next=await findNewestActiveGame();
+    if(!next || next.id===oldGameId){
+      setStatus(false,"再接続中");
+      clearTimeout(S.gameSwitchTimer);
+      S.gameSwitchTimer=setTimeout(()=>adoptActiveGame(oldGameId),1000);
+      return;
+    }
+
+    clearTimeout(S.gameSwitchTimer);
+    S.gameSwitchTimer=null;
+
+    if(S.realtime){
+      await supabase.removeChannel(S.realtime);
+      S.realtime=null;
+    }
+
+    clearLocalPlayerState();
+    S.game=next;
+    S.players=[];
+    S.messages=[];
+
+    // 新ゲーム側の参加状況を即取得してから再購読する。
+    S.switchingGame=false;
+    await refresh();
+    subscribe();
+    setStatus(true,"接続済み");
+    show("roleScreen");
+    toast("ゲームがリセットされました。新しいゲームを開始できます。");
+  }catch(e){
+    console.error("game switch failed:",e);
+    setStatus(false,"再接続中");
+    clearTimeout(S.gameSwitchTimer);
+    S.gameSwitchTimer=setTimeout(()=>adoptActiveGame(oldGameId),1000);
+  }finally{
+    S.switchingGame=false;
+  }
+}
+
 async function refresh(){
-  if(!S.game) return;
-  const [g,p,m]=await Promise.all([
-    supabase.from("chase_games").select("*").eq("id",S.game.id).single(),
-    supabase.from("chase_players").select("*").eq("game_id",S.game.id),
-    supabase.from("chase_messages").select("*").eq("game_id",S.game.id).order("created_at",{ascending:true}).limit(300)
+  if(!S.game || S.switchingGame) return;
+  const gameId=S.game.id;
+
+  const g=await supabase.from("chase_games").select("*").eq("id",gameId).single();
+  if(g.error) throw g.error;
+
+  // 誰かが全体リセットしたら、旧ゲームを見ている全端末も新ゲームへ移動する。
+  if(!g.data?.active){
+    S.game=g.data;
+    if(!S.resetting) await adoptActiveGame(gameId);
+    return;
+  }
+
+  const [p,m]=await Promise.all([
+    supabase.from("chase_players").select("*").eq("game_id",gameId),
+    supabase.from("chase_messages").select("*").eq("game_id",gameId).order("created_at",{ascending:true}).limit(300)
   ]);
-  if(g.error) throw g.error;if(p.error) throw p.error;if(m.error) throw m.error;
+  if(p.error) throw p.error;if(m.error) throw m.error;
+  if(S.game?.id!==gameId) return;
   S.game=g.data;S.players=p.data||[];S.messages=m.data||[];
   render();
 }
@@ -1830,6 +1914,94 @@ async function newGame(){
   sessionStorage.removeItem(TAB_PLAYER_KEY);
   location.reload()
 }
+
+async function resetGameForEveryone(){
+  if(!S.game?.id || S.resetting || S.switchingGame) return;
+
+  const ok=window.confirm(
+    "現在のゲームを全員分リセットします。\n逃亡者・追撃者・READY・現在地・残り時間・会話・勝敗状態は新しいゲームに引き継がれません。\n\nリセットしますか？"
+  );
+  if(!ok) return;
+
+  const oldId=S.game.id;
+  const btn=$("resetGameBtn");
+  S.resetting=true;
+  if(btn){btn.disabled=true;btn.textContent="リセット中…";}
+
+  try{
+    // active=true の旧ゲームを落とせた1端末だけが、新しいゲームを作る。
+    // 同時押しされても新規ゲームが複数できにくいようにする。
+    const {data:closed,error:closeError}=await supabase
+      .from("chase_games")
+      .update({
+        active:false,
+        status:"finished",
+        result_text:"観戦画面から全体リセットされました。",
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",oldId)
+      .eq("active",true)
+      .select("id");
+
+    if(closeError) throw closeError;
+
+    let next=null;
+    if(closed?.length===1){
+      const ins=await supabase
+        .from("chase_games")
+        .insert({active:true,status:"waiting",updated_at:new Date().toISOString()})
+        .select()
+        .single();
+      if(ins.error) throw ins.error;
+      next=ins.data;
+    }else{
+      // ほぼ同時に別の人が押した場合は、その人が作った新ゲームへ合流する。
+      next=await findNewestActiveGame();
+    }
+
+    if(!next) throw new Error("新しいゲームを取得できませんでした。");
+
+    if(S.realtime){
+      await supabase.removeChannel(S.realtime);
+      S.realtime=null;
+    }
+
+    clearLocalPlayerState();
+    S.game=next;
+    S.players=[];
+    S.messages=[];
+    S.resetting=false;
+
+    await refresh();
+    subscribe();
+    setStatus(true,"接続済み");
+    show("roleScreen");
+    toast("全体リセットしました。全員が新しいゲームへ移動します。");
+  }catch(e){
+    console.error("manual reset failed:",e);
+    toast("リセットに失敗しました。もう一度お試しください。");
+    try{
+      const next=(await findNewestActiveGame(4,250)) || (await ensureGame());
+      if(next && next.id!==oldId){
+        clearLocalPlayerState();
+        S.game=next;
+        S.players=[];
+        S.messages=[];
+        S.resetting=false;
+        await refresh();
+        subscribe();
+        show("roleScreen");
+      }else if(S.game){
+        subscribe();
+      }
+    }catch(recoverError){
+      console.error("reset recovery failed:",recoverError);
+    }
+  }finally{
+    S.resetting=false;
+    if(btn){btn.disabled=false;btn.textContent="ゲームを全体リセットする";}
+  }
+}
 async function logSystem(message){
   if(!S.game)return;
   await supabase.from("chase_messages").insert({game_id:S.game.id,channel:"system",message,player_name:"EL CAPOTE"});
@@ -2116,6 +2288,7 @@ $("duelEndDrawBtn").onclick=()=>drawChoice(false);
 $("duelWinnerEndBtn").onclick=newGame;
 
 $("newGameBtn").onclick=newGame;
+$("resetGameBtn").onclick=resetGameForEveryone;
 $("spectateBtn").onclick=()=>{
   S.spectator=true;
   S.myRole=null;
